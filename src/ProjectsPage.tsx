@@ -34,7 +34,10 @@ export const getProjectById = (id: string): Project | undefined => {
   return projects.find((p: Project) => p.id === id);
 };
 
-const API_URL = 'http://localhost:3333';
+// Use production Worker API or local dev server
+const API_URL = import.meta.env.PROD
+  ? 'https://design-editor-api.eziopappalardo98.workers.dev'
+  : 'http://localhost:3333';
 
 const ProjectsPage: React.FC = () => {
   const navigate = useNavigate();

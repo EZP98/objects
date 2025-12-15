@@ -1,0 +1,15 @@
+name = "design-editor-api"
+main = "index.js"
+compatibility_date = "2024-12-01"
+
+# KV Namespace for storing tokens and user data
+[[kv_namespaces]]
+binding = "TOKENS"
+id = "cd03e22ab0d34e7b8d2af0493b1e9524"
+
+# Environment variables (secrets)
+# Set these with: wrangler secret put GITHUB_CLIENT_ID
+# wrangler secret put GITHUB_CLIENT_SECRET
+
+[vars]
+FRONTEND_URL = "https://design-editor-7f9.pages.dev"
