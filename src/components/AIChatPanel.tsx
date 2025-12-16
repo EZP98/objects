@@ -2,6 +2,24 @@ import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } f
 import { useChatHistory } from '../lib/persistence/useChatHistory';
 import { ChatMessage, FileSnapshot } from '../lib/persistence/db';
 
+type AIModel = 'claude' | 'gpt4' | 'image' | 'video' | 'audio';
+
+interface ModelOption {
+  id: AIModel;
+  name: string;
+  icon: string;
+  description: string;
+  color: string;
+}
+
+const AI_MODELS: ModelOption[] = [
+  { id: 'claude', name: 'Claude', icon: '✨', description: 'Code & Design', color: '#8b5cf6' },
+  { id: 'gpt4', name: 'GPT-4', icon: '🧠', description: 'General AI', color: '#10b981' },
+  { id: 'image', name: 'Image', icon: '🎨', description: 'DALL-E / Midjourney', color: '#f59e0b' },
+  { id: 'video', name: 'Video', icon: '🎬', description: 'Runway / Sora', color: '#ef4444' },
+  { id: 'audio', name: 'Audio', icon: '🎵', description: 'ElevenLabs / Suno', color: '#3b82f6' },
+];
+
 interface AIChatPanelProps {
   onApplyCode?: (code: string, filePath: string) => void;
   currentFile?: string;
@@ -43,6 +61,8 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
 
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<AIModel>('claude');
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -328,11 +348,79 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
       </div>
 
       {/* Input Area */}
-      <div style={{ padding: '8px 12px 12px' }}>
+      <div style={{ padding: '8px 12px 12px', position: 'relative' }}>
+        {/* Model Selector Dropdown */}
+        {showModelSelector && (
+          <div style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: 12,
+            right: 12,
+            marginBottom: 8,
+            background: '#1a1a1a',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 12,
+            padding: 8,
+            zIndex: 100,
+            boxShadow: '0 -8px 32px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ fontSize: 10, color: '#5a5a5a', padding: '4px 8px', marginBottom: 4 }}>
+              SELEZIONA MODELLO
+            </div>
+            {AI_MODELS.map(model => (
+              <div
+                key={model.id}
+                onClick={() => {
+                  setSelectedModel(model.id);
+                  setShowModelSelector(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  background: selectedModel === model.id ? `${model.color}20` : 'transparent',
+                  border: selectedModel === model.id ? `1px solid ${model.color}40` : '1px solid transparent',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  if (selectedModel !== model.id) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (selectedModel !== model.id) {
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
+              >
+                <span style={{ fontSize: 18 }}>{model.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: selectedModel === model.id ? model.color : '#e5e5e5'
+                  }}>
+                    {model.name}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#5a5a5a' }}>{model.description}</div>
+                </div>
+                {selectedModel === model.id && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={model.color} strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={{
           background: '#18181b',
           border: '1px solid #27272a',
-          borderRadius: 10,
+          borderRadius: 12,
           overflow: 'hidden',
         }}>
           <textarea
@@ -340,7 +428,12 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Scrivi un messaggio..."
+            placeholder={
+              selectedModel === 'image' ? 'Descrivi l\'immagine da generare...' :
+              selectedModel === 'video' ? 'Descrivi il video da creare...' :
+              selectedModel === 'audio' ? 'Descrivi l\'audio o la musica...' :
+              'Scrivi un messaggio...'
+            }
             style={{
               width: '100%',
               background: 'transparent',
@@ -359,25 +452,65 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
             padding: '6px 10px 10px',
           }}>
+            {/* Model Selector Button */}
+            <button
+              onClick={() => setShowModelSelector(!showModelSelector)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
+                background: showModelSelector ? `${AI_MODELS.find(m => m.id === selectedModel)?.color}20` : 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 8,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              <span style={{ fontSize: 14 }}>
+                {AI_MODELS.find(m => m.id === selectedModel)?.icon}
+              </span>
+              <span style={{
+                fontSize: 11,
+                color: AI_MODELS.find(m => m.id === selectedModel)?.color,
+                fontWeight: 500,
+              }}>
+                {AI_MODELS.find(m => m.id === selectedModel)?.name}
+              </span>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#5a5a5a"
+                strokeWidth="2"
+                style={{ transform: showModelSelector ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {/* Send Button */}
             <button
               onClick={() => sendMessageInternal()}
               disabled={!input.trim() || isStreaming}
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: '50%',
+                width: 28,
+                height: 28,
+                borderRadius: 8,
                 border: 'none',
                 background: input.trim() && !isStreaming
-                  ? 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)'
+                  ? AI_MODELS.find(m => m.id === selectedModel)?.color || '#8b5cf6'
                   : '#27272a',
                 color: input.trim() && !isStreaming ? '#fff' : '#52525b',
                 cursor: input.trim() && !isStreaming ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                transition: 'all 0.15s',
               }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
