@@ -2604,6 +2604,15 @@ const DesignEditor: React.FC = () => {
               currentCode={selectedFile ? fileContents[selectedFile.replace(/^\//, '')] : undefined}
               projectName={githubRepo?.name || 'Nuovo Progetto'}
               currentFiles={fileContents}
+              onFilesUpdate={(updatedFiles) => {
+                // Apply file updates from AI artifacts
+                setFileContents(prev => ({ ...prev, ...updatedFiles }));
+                // Update WebContainer files for live preview
+                if (githubRepo) {
+                  setWebcontainerFiles(prev => ({ ...prev, ...updatedFiles }));
+                }
+                console.log('[DesignEditor] Files updated from AI:', Object.keys(updatedFiles));
+              }}
               onRestoreSnapshot={(files) => {
                 setFileContents(files);
                 // Optionally refresh the preview

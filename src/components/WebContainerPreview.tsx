@@ -32,10 +32,12 @@ const WebContainerPreview = forwardRef<WebContainerPreviewRef, WebContainerPrevi
     logs,
     error,
     runProject,
+    updateFile,
   } = useWebContainer();
 
   const hasStarted = useRef(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const previousFilesRef = useRef<Record<string, string>>({});
 
   // Expose iframe ref to parent
   useImperativeHandle(ref, () => ({
@@ -46,9 +48,32 @@ const WebContainerPreview = forwardRef<WebContainerPreviewRef, WebContainerPrevi
   useEffect(() => {
     if (autoStart && !hasStarted.current && status === 'idle' && files && Object.keys(files).length > 0) {
       hasStarted.current = true;
+      previousFilesRef.current = { ...files };
       runProject(files);
     }
   }, [autoStart, status, files, runProject]);
+
+  // Update files in WebContainer when they change (hot reload)
+  useEffect(() => {
+    if (status !== 'ready' || !files) return;
+
+    // Find changed files
+    const changedFiles: Array<{ path: string; content: string }> = [];
+    for (const [path, content] of Object.entries(files)) {
+      if (previousFilesRef.current[path] !== content) {
+        changedFiles.push({ path, content });
+      }
+    }
+
+    // Update changed files
+    if (changedFiles.length > 0) {
+      console.log('[WebContainerPreview] Updating files:', changedFiles.map(f => f.path));
+      changedFiles.forEach(({ path, content }) => {
+        updateFile(path, content);
+      });
+      previousFilesRef.current = { ...files };
+    }
+  }, [files, status, updateFile]);
 
   // Show loading files state
   const isLoadingFiles = !files || Object.keys(files).length === 0;
