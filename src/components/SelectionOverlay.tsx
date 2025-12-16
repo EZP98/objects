@@ -53,10 +53,31 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const overlayRef = useRef<HTMLDivElement>(null);
 
+  // Check if iframe is accessible (same-origin)
+  const isIframeAccessible = useCallback((): boolean => {
+    const iframe = iframeRef.current;
+    if (!iframe) return false;
+    try {
+      // This will throw if cross-origin
+      return iframe.contentDocument !== null;
+    } catch {
+      return false;
+    }
+  }, [iframeRef]);
+
   // Get element from point in iframe
   const getElementFromPoint = useCallback((clientX: number, clientY: number): SelectedElement | null => {
     const iframe = iframeRef.current;
-    if (!iframe?.contentDocument) return null;
+    if (!iframe) return null;
+
+    // Check cross-origin access
+    try {
+      if (!iframe.contentDocument) return null;
+    } catch {
+      // Cross-origin - can't access
+      console.log('[SelectionOverlay] Cross-origin iframe, selection disabled');
+      return null;
+    }
 
     const iframeRect = iframe.getBoundingClientRect();
     const x = (clientX - iframeRect.left) / zoom;
@@ -256,7 +277,33 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
     return () => observer.disconnect();
   }, [selectedElement, iframeRef]);
 
+  // Don't render overlay if iframe is cross-origin (WebContainer)
+  const canAccessIframe = isIframeAccessible();
+
   if (!enabled) return null;
+
+  // If cross-origin, show info message instead of overlay
+  if (!canAccessIframe) {
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.8)',
+          color: '#fff',
+          padding: '8px 16px',
+          borderRadius: 8,
+          fontSize: 12,
+          zIndex: 50,
+          pointerEvents: 'none',
+        }}
+      >
+        Visual editing non disponibile per WebContainer. Usa la Chat per modificare il codice.
+      </div>
+    );
+  }
 
   const renderResizeHandles = () => {
     if (!selectedElement) return null;
