@@ -43,7 +43,6 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
 
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -185,130 +184,9 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
       <div style={{
         padding: '10px 12px',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#e5e5e5' }}>Chat</span>
-          {chatHistory.length > 1 && (
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              style={{
-                background: showHistory ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)',
-                border: 'none',
-                borderRadius: 4,
-                padding: '2px 6px',
-                fontSize: 10,
-                color: showHistory ? '#a78bfa' : '#71717a',
-                cursor: 'pointer',
-              }}
-            >
-              {chatHistory.length} chats
-            </button>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {/* New Chat */}
-          <button
-            onClick={newChat}
-            title="Nuova chat"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#5a5a5a',
-              cursor: 'pointer',
-              padding: 4,
-              borderRadius: 4,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = '#a78bfa'}
-            onMouseLeave={e => e.currentTarget.style.color = '#5a5a5a'}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-          {/* Clear Chat */}
-          {messages.length > 0 && (
-            <button
-              onClick={clearChat}
-              title="Cancella chat"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#5a5a5a',
-                cursor: 'pointer',
-                padding: 4,
-                borderRadius: 4,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-              onMouseLeave={e => e.currentTarget.style.color = '#5a5a5a'}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-            </button>
-          )}
-        </div>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#e5e5e5' }}>Chat</span>
       </div>
-
-      {/* Chat History Dropdown */}
-      {showHistory && (
-        <div style={{
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          maxHeight: 200,
-          overflowY: 'auto',
-          background: '#111',
-        }}>
-          {chatHistory.map(chat => (
-            <div
-              key={chat.id}
-              onClick={() => {
-                loadChat(chat.id);
-                setShowHistory(false);
-              }}
-              style={{
-                padding: '10px 12px',
-                cursor: 'pointer',
-                background: chat.id === chatId ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                borderLeft: chat.id === chatId ? '2px solid #8b5cf6' : '2px solid transparent',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => {
-                if (chat.id !== chatId) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (chat.id !== chatId) {
-                  e.currentTarget.style.background = 'transparent';
-                }
-              }}
-            >
-              <div style={{
-                fontSize: 12,
-                color: '#e5e5e5',
-                marginBottom: 4,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {chat.description}
-              </div>
-              <div style={{ fontSize: 10, color: '#5a5a5a' }}>
-                {formatDate(chat.updatedAt)} • {chat.messages.length} messaggi
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Messages Area */}
       <div style={{
