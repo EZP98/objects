@@ -3,8 +3,20 @@ import { useParams } from 'react-router-dom';
 import './DesignEditor.css';
 import CodePanel from './components/CodePanel';
 import FileExplorer, { FileNode } from './components/FileExplorer';
+import AIChatPanel, { AIChatPanelRef } from './components/AIChatPanel';
+import WebContainerPreview, { WebContainerPreviewRef } from './components/WebContainerPreview';
+import SelectionOverlay, { SelectedElement } from './components/SelectionOverlay';
+import VisualPropsPanel from './components/VisualPropsPanel';
 import { DesignElement as CodeElement } from './utils/codeGenerator';
+import { discoverPages, DiscoveredPage } from './lib/pageDiscovery';
 import { getProjectById, type Project } from './ProjectsPage';
+import { useWebContainer } from './lib/hooks/useWebContainer';
+import { useGit } from './lib/hooks/useGit';
+
+// API URL for production/development
+const API_URL = import.meta.env.PROD
+  ? 'https://design-editor-api.eziopappalardo98.workers.dev'
+  : 'http://localhost:3333';
 
 // ==========================================
 // TYPES
@@ -74,18 +86,55 @@ interface AnimationKeyframes {
   keyframes: Keyframe[];
 }
 
-// Responsive Breakpoints
+// Device Presets
+interface DevicePreset {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  category: 'desktop' | 'tablet' | 'phone';
+}
+
+const DEVICE_PRESETS: DevicePreset[] = [
+  // Desktop
+  { id: 'macbook-pro-16', name: 'MacBook Pro 16"', width: 1728, height: 1117, category: 'desktop' },
+  { id: 'macbook-pro-14', name: 'MacBook Pro 14"', width: 1512, height: 982, category: 'desktop' },
+  { id: 'macbook-air', name: 'MacBook Air', width: 1470, height: 956, category: 'desktop' },
+  { id: 'imac-24', name: 'iMac 24"', width: 2048, height: 1152, category: 'desktop' },
+  { id: 'desktop-hd', name: 'Desktop HD', width: 1920, height: 1080, category: 'desktop' },
+  { id: 'desktop-lg', name: 'Desktop Large', width: 1440, height: 900, category: 'desktop' },
+  { id: 'desktop-md', name: 'Desktop', width: 1280, height: 800, category: 'desktop' },
+  // Tablet
+  { id: 'ipad-pro-13', name: 'iPad Pro 13"', width: 1032, height: 1376, category: 'tablet' },
+  { id: 'ipad-pro-11', name: 'iPad Pro 11"', width: 834, height: 1194, category: 'tablet' },
+  { id: 'ipad-air', name: 'iPad Air', width: 820, height: 1180, category: 'tablet' },
+  { id: 'ipad-mini', name: 'iPad Mini', width: 744, height: 1133, category: 'tablet' },
+  { id: 'ipad', name: 'iPad', width: 810, height: 1080, category: 'tablet' },
+  // Phone
+  { id: 'iphone-15-pro-max', name: 'iPhone 15 Pro Max', width: 430, height: 932, category: 'phone' },
+  { id: 'iphone-15-pro', name: 'iPhone 15 Pro', width: 393, height: 852, category: 'phone' },
+  { id: 'iphone-15', name: 'iPhone 15', width: 393, height: 852, category: 'phone' },
+  { id: 'iphone-se', name: 'iPhone SE', width: 375, height: 667, category: 'phone' },
+  { id: 'pixel-8', name: 'Pixel 8', width: 412, height: 915, category: 'phone' },
+  { id: 'galaxy-s24', name: 'Galaxy S24', width: 360, height: 780, category: 'phone' },
+];
+
+// Category icons for toolbar
+type DeviceCategory = 'desktop' | 'tablet' | 'phone';
+
 interface Breakpoint {
   id: string;
   name: string;
   width: number;
-  icon: 'desktop' | 'tablet' | 'phone';
+  height: number;
+  icon: DeviceCategory;
 }
 
+// Default breakpoints for quick toggle
 const BREAKPOINTS: Breakpoint[] = [
-  { id: 'desktop', name: 'Desktop', width: 1200, icon: 'desktop' },
-  { id: 'tablet', name: 'Tablet', width: 810, icon: 'tablet' },
-  { id: 'phone', name: 'Phone', width: 375, icon: 'phone' },
+  { id: 'desktop', name: 'Desktop', width: 1440, height: 900, icon: 'desktop' },
+  { id: 'tablet', name: 'Tablet', width: 810, height: 1080, icon: 'tablet' },
+  { id: 'phone', name: 'Phone', width: 393, height: 852, icon: 'phone' },
 ];
 
 // Responsive overrides for elements
@@ -861,16 +910,39 @@ const DesignEditor: React.FC = () => {
   const [showTimeline, setShowTimeline] = useState(false);
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [projectFiles] = useState<FileNode[]>(sampleProjectFiles);
+  const [projectFiles, setProjectFiles] = useState<FileNode[]>(sampleProjectFiles);
   const [selectedFile, setSelectedFile] = useState<string | undefined>(undefined);
+  const [githubRepo, setGithubRepo] = useState<{ owner: string; name: string; userId: string } | null>(null);
+  const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [webcontainerReady, setWebcontainerReady] = useState(false);
+  const [webcontainerUrl, setWebcontainerUrl] = useState<string>('');
+  const [useWebContainer, setUseWebContainer] = useState(false);
+  const [webcontainerFiles, setWebcontainerFiles] = useState<Record<string, string> | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<'design' | 'code'>('design');
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('desktop');
+  const [selectedDevice, setSelectedDevice] = useState<DevicePreset>(DEVICE_PRESETS.find(d => d.id === 'desktop-lg')!);
+  const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
   const [projectUrl, setProjectUrl] = useState<string>('');
+  const [iframeLoading, setIframeLoading] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const [projectPath, setProjectPath] = useState<string>('');
   const [projectStatus, setProjectStatus] = useState<'idle' | 'installing' | 'starting' | 'ready' | 'error'>('idle');
   const [projectLogs, setProjectLogs] = useState<string[]>([]);
   const [loaderTab, setLoaderTab] = useState<'url' | 'path'>('path');
+  const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([]);
+  const [currentPreviewPath, setCurrentPreviewPath] = useState<string>('/');
+  const [visualEditMode, setVisualEditMode] = useState(false);
+  const [visualSelectedElement, setVisualSelectedElement] = useState<SelectedElement | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const webContainerPreviewRef = useRef<WebContainerPreviewRef>(null);
+  const chatPanelRef = useRef<AIChatPanelRef>(null);
+
+  // Get iframe ref from WebContainerPreview
+  const getPreviewIframe = useCallback(() => {
+    return webContainerPreviewRef.current?.getIframe() || null;
+  }, []);
   const [hoveredElement, setHoveredElement] = useState<{
     tagName: string;
     className: string;
@@ -1129,6 +1201,136 @@ const DesignEditor: React.FC = () => {
   // EFFECTS
   // ==========================================
 
+  // Clear GitHub data when creating a new project
+  useEffect(() => {
+    if (projectId === 'new') {
+      localStorage.removeItem('current-github-repo');
+      setGithubRepo(null);
+      setProjectFiles([]);
+      setProjectUrl('');
+      setUseWebContainer(false);
+    }
+  }, [projectId]);
+
+  // useGit hook for cloning repos
+  const { ready: gitReady, cloning: gitCloning, progress: gitProgress, gitClone } = useGit();
+
+  // Load GitHub repo using git clone (like bolt.diy)
+  useEffect(() => {
+    if (projectId === 'new') return;
+
+    const repoData = localStorage.getItem('current-github-repo');
+    if (!repoData) return;
+
+    const loadProject = async () => {
+      try {
+        const repo = JSON.parse(repoData);
+        if (!repo.owner || !repo.name) return;
+
+        setGithubRepo({ owner: repo.owner, name: repo.name, userId: repo.userId || '' });
+        setProjectLogs(['Loading project...']);
+
+        // Check if repo has a deployed homepage URL (instant preview)
+        if (repo.homepage && repo.homepage.startsWith('http')) {
+          setProjectUrl(repo.homepage);
+          setProjectStatus('ready');
+          setLiveMode(true);
+          setProjectLogs(['Site loaded from deployed URL']);
+          return;
+        }
+
+        // Enable WebContainer mode and show loading UI
+        setUseWebContainer(true);
+        setProjectLogs(prev => [...prev, 'Preparing to clone repository...']);
+
+        // Wait for git to be ready
+        if (!gitReady) {
+          setProjectLogs(prev => [...prev, 'Waiting for WebContainer...']);
+          return; // Will retry when gitReady becomes true
+        }
+
+        // Clone the repository using isomorphic-git
+        const repoUrl = `https://github.com/${repo.owner}/${repo.name}.git`;
+        setProjectLogs(prev => [...prev, `Cloning ${repo.owner}/${repo.name}...`]);
+
+        const { files } = await gitClone(repoUrl);
+
+        setProjectLogs(prev => [...prev, `Cloned ${Object.keys(files).length} files`]);
+
+        // Build file tree for sidebar
+        const fileTree: FileNode[] = [];
+        const pathMap: Record<string, FileNode> = {};
+
+        Object.keys(files).sort().forEach(filePath => {
+          const parts = filePath.split('/').filter(Boolean);
+          let currentPath = '';
+
+          parts.forEach((part, index) => {
+            const isLast = index === parts.length - 1;
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+
+            if (!pathMap[currentPath]) {
+              const node: FileNode = {
+                name: part,
+                type: isLast ? 'file' : 'folder',
+                path: '/' + currentPath,
+                children: isLast ? undefined : [],
+              };
+              pathMap[currentPath] = node;
+
+              if (index === 0) {
+                fileTree.push(node);
+              } else {
+                const parentPath = parts.slice(0, index).join('/');
+                const parent = pathMap[parentPath];
+                if (parent?.children) {
+                  parent.children.push(node);
+                }
+              }
+            }
+          });
+        });
+
+        setProjectFiles(fileTree);
+        setFileContents(files);
+        setWebcontainerFiles(files);
+        setShowUrlInput(false);
+
+      } catch (e) {
+        console.error('Error loading project:', e);
+        setProjectStatus('error');
+        setProjectLogs(prev => [...prev, `Error: ${e instanceof Error ? e.message : e}`]);
+      }
+    };
+
+    loadProject();
+  }, [projectId, gitReady, gitClone]);
+
+  // Safety net: Ensure WebContainer is started when githubRepo is loaded
+  useEffect(() => {
+    if (githubRepo && !useWebContainer && Object.keys(fileContents).length > 0) {
+      setUseWebContainer(true);
+      setWebcontainerFiles(fileContents);
+      setProjectStatus('installing');
+    }
+  }, [githubRepo, useWebContainer, fileContents]);
+
+  // Discover pages/routes when files are loaded
+  useEffect(() => {
+    if (Object.keys(fileContents).length > 0) {
+      const pages = discoverPages(fileContents);
+      setDiscoveredPages(pages);
+      console.log('Discovered pages:', pages);
+    }
+  }, [fileContents]);
+
+  // Set iframe loading state when URL changes
+  useEffect(() => {
+    if (projectUrl) {
+      setIframeLoading(true);
+    }
+  }, [projectUrl]);
+
   // Auto-start project when editor loads
   useEffect(() => {
     if (!projectId || projectId === 'new' || isAutoStarting) return;
@@ -1216,17 +1418,24 @@ const DesignEditor: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedId, deleteElement]);
 
-  // Trackpad/wheel zoom with passive: false for pinch gesture
+  // Trackpad/wheel navigation: pinch to zoom, two-finger pan
   useEffect(() => {
     const canvasArea = canvasAreaRef.current;
     if (!canvasArea) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Pinch to zoom (ctrl/meta + wheel) or standard wheel zoom
+      e.preventDefault();
+
+      // Pinch to zoom (ctrl/meta + wheel)
       if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
         const delta = e.deltaY > 0 ? -0.05 : 0.05;
         setZoom(z => Math.min(4, Math.max(0.1, z + delta)));
+      } else {
+        // Two-finger pan (trackpad scroll)
+        setPan(p => ({
+          x: p.x - e.deltaX,
+          y: p.y - e.deltaY
+        }));
       }
     };
 
@@ -1264,7 +1473,7 @@ const DesignEditor: React.FC = () => {
         // Send a message to inject the inspector
         iframeWindow.postMessage({ type: 'init-inspector' }, '*');
       } catch (e) {
-        console.log('Cross-origin iframe, using overlay mode');
+        // Cross-origin iframe, use overlay mode instead
       }
     };
 
@@ -1739,58 +1948,163 @@ const DesignEditor: React.FC = () => {
       <header className="de-header">
         <div className="de-header-left">
           <button onClick={() => window.location.href = '/'} className="de-logo">
-            Portfolio Editor
+            Design Editor
           </button>
+          {/* Project indicator */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginLeft: 16,
+            padding: '4px 12px',
+            background: 'rgba(139, 92, 246, 0.1)',
+            borderRadius: 6,
+            fontSize: 13,
+            color: '#a78bfa',
+          }}>
+            <div style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: useWebContainer || githubRepo ? '#22c55e' : '#6b7280',
+            }} />
+            {githubRepo?.name || (projectId === 'new' ? 'Nuovo Progetto' : 'Design Editor')}
+          </div>
         </div>
 
         <div className="de-header-center">
-          {/* Live Mode Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '4px 8px' }}>
+          {/* Mode Toggle - Icon Style like Bolt */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.06)',
+            borderRadius: 12,
+            padding: 4,
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            {/* Preview/Design Mode */}
             <button
-              onClick={() => setLiveMode(false)}
+              onClick={() => setViewMode('design')}
+              title="Preview"
               style={{
-                padding: '6px 12px',
-                background: !liveMode ? 'rgba(255,255,255,0.1)' : 'transparent',
+                width: 32,
+                height: 32,
+                borderRadius: 8,
                 border: 'none',
-                borderRadius: 6,
-                color: !liveMode ? '#fff' : '#6b6b6b',
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              Design
-            </button>
-            <button
-              onClick={() => {
-                if (projectUrl) {
-                  setLiveMode(true);
-                } else {
-                  setShowUrlInput(true);
-                }
-              }}
-              style={{
-                padding: '6px 12px',
-                background: liveMode ? '#22c55e' : 'transparent',
-                border: 'none',
-                borderRadius: 6,
-                color: liveMode ? '#fff' : '#6b6b6b',
-                fontSize: 12,
-                fontWeight: 500,
+                background: viewMode === 'design' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                color: viewMode === 'design' ? '#a78bfa' : '#6b6b6b',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                justifyContent: 'center',
+                transition: 'all 0.15s',
               }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: liveMode ? '#fff' : '#6b6b6b' }} />
-              Live
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+
+            {/* Code Mode */}
+            <button
+              onClick={() => setViewMode('code')}
+              title="Code"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: 'none',
+                background: viewMode === 'code' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                color: viewMode === 'code' ? '#a78bfa' : '#6b6b6b',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
             </button>
           </div>
-          {projectUrl && (
-            <span style={{ fontSize: 11, color: '#6b6b6b', marginLeft: 8 }}>
-              {projectUrl}
-            </span>
+
+          {/* Responsive Viewport Controls */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.06)',
+            borderRadius: 12,
+            padding: 4,
+            border: '1px solid rgba(255,255,255,0.08)',
+            marginLeft: 12,
+          }}>
+            {BREAKPOINTS.map(bp => (
+              <button
+                key={bp.id}
+                onClick={() => {
+                  setCurrentBreakpoint(bp.id);
+                  const defaultDevice = DEVICE_PRESETS.find(d => d.category === bp.icon);
+                  if (defaultDevice) setSelectedDevice(defaultDevice);
+                }}
+                title={`${bp.name} (${bp.width}px)`}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: currentBreakpoint === bp.id ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                  color: currentBreakpoint === bp.id ? '#a78bfa' : '#6b6b6b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {bp.icon === 'desktop' && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                  </svg>
+                )}
+                {bp.icon === 'tablet' && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                  </svg>
+                )}
+                {bp.icon === 'phone' && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Project Name / URL Bar */}
+          {githubRepo && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 16px',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 20,
+              marginLeft: 12,
+              minWidth: 200,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+              <span style={{ color: '#a1a1aa', fontSize: 12 }}>
+                {githubRepo.name}
+              </span>
+            </div>
           )}
         </div>
 
@@ -1820,6 +2134,7 @@ const DesignEditor: React.FC = () => {
           >
             Timeline
           </button>
+          {!githubRepo && (
           <button
             onClick={() => setShowCodePanel(!showCodePanel)}
             className={`de-btn de-btn-ghost ${showCodePanel ? 'active' : ''}`}
@@ -1827,6 +2142,7 @@ const DesignEditor: React.FC = () => {
             <span style={{ width: 16, height: 16, display: 'flex' }}>{Icons.code}</span>
             Code
           </button>
+          )}
           <button
             onClick={() => setShowPreview(true)}
             className="de-btn de-btn-ghost"
@@ -1843,257 +2159,582 @@ const DesignEditor: React.FC = () => {
       </header>
 
       <div className="de-main">
-        {/* Left Panel */}
-        <div className="de-left-panel">
-          {/* Pages Panel */}
-          <div className="de-pages-panel">
-            <div className="de-panel-header">
-              <span className="de-panel-title">Pages</span>
-              <div className="de-panel-actions">
-                <button className="de-icon-btn" onClick={addPage} title="Add Page">
-                  {Icons.plus}
-                </button>
-              </div>
+        {/* Left Sidebar - Pages/Frames (top) + Chat (bottom) */}
+        <div style={{
+          width: 320,
+          minWidth: 320,
+          background: '#111',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden',
+        }}>
+          {/* Top - Pages/Frames as Thumbnails (40%) */}
+          <div style={{
+            flex: '0 0 40%',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#e5e5e5' }}>
+                {githubRepo ? 'Pages' : 'Frames'}
+              </span>
+              <span style={{ fontSize: 10, color: '#5a5a5a' }}>
+                {githubRepo ? discoveredPages.length : pages.length}
+              </span>
             </div>
-            <div className="de-pages-list">
-              {pages.map(page => (
-                <div
-                  key={page.id}
-                  className={`de-page-item ${currentPageId === page.id ? 'active' : ''}`}
-                  onClick={() => setCurrentPageId(page.id)}
-                  onDoubleClick={() => setEditingPageId(page.id)}
-                >
-                  <span className="de-page-icon">{Icons.page}</span>
-                  {editingPageId === page.id ? (
-                    <input
-                      type="text"
-                      className="de-page-input"
-                      defaultValue={page.name}
-                      autoFocus
-                      onBlur={(e) => renamePage(page.id, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          renamePage(page.id, e.currentTarget.value);
-                        }
-                        if (e.key === 'Escape') {
-                          setEditingPageId(null);
-                        }
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: 12,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 12,
+              alignContent: 'start',
+            }}>
+              {githubRepo ? (
+                // GitHub project - show discovered routes as thumbnails
+                discoveredPages.length === 0 ? (
+                  <div style={{
+                    gridColumn: '1 / -1',
+                    padding: 16,
+                    textAlign: 'center',
+                    color: '#5a5a5a',
+                    fontSize: 12,
+                  }}>
+                    {webcontainerReady ? 'No pages found' : 'Loading...'}
+                  </div>
+                ) : (
+                  discoveredPages.map(page => (
+                    <div
+                      key={page.path}
+                      onClick={() => setCurrentPreviewPath(page.path)}
+                      style={{
+                        background: currentPreviewPath === page.path ? 'rgba(139, 92, 246, 0.15)' : 'rgba(255,255,255,0.03)',
+                        border: currentPreviewPath === page.path ? '2px solid #8b5cf6' : '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8,
+                        padding: 8,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
                       }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <span className="de-page-name">{page.name}</span>
-                  )}
-                  <span className="de-page-count">{page.elements.filter(el => !el.parentId).length}</span>
-                  <div className="de-page-actions">
-                    <button
-                      className="de-page-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        duplicatePage(page.id);
-                      }}
-                      title="Duplicate"
                     >
-                      {Icons.copy}
-                    </button>
-                    {pages.length > 1 && (
-                      <button
-                        className="de-page-btn delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deletePage(page.id);
+                      {/* Thumbnail placeholder */}
+                      <div style={{
+                        width: '100%',
+                        aspectRatio: '16/10',
+                        background: '#1a1a1a',
+                        borderRadius: 4,
+                        marginBottom: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#3a3a3a',
+                        fontSize: 20,
+                      }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <path d="M3 9h18" />
+                          <path d="M9 21V9" />
+                        </svg>
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: '#e5e5e5', marginBottom: 2 }}>
+                        {page.name}
+                      </div>
+                      <div style={{ fontSize: 9, color: '#5a5a5a', fontFamily: 'monospace' }}>
+                        {page.path}
+                      </div>
+                    </div>
+                  ))
+                )
+              ) : (
+                // Design mode - show pages as thumbnails
+                pages.map(page => (
+                  <div
+                    key={page.id}
+                    onClick={() => setCurrentPageId(page.id)}
+                    onDoubleClick={() => setEditingPageId(page.id)}
+                    style={{
+                      background: currentPageId === page.id ? 'rgba(139, 92, 246, 0.15)' : 'rgba(255,255,255,0.03)',
+                      border: currentPageId === page.id ? '2px solid #8b5cf6' : '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 8,
+                      padding: 8,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {/* Thumbnail - mini canvas preview */}
+                    <div style={{
+                      width: '100%',
+                      aspectRatio: '16/10',
+                      background: '#1a1a1a',
+                      borderRadius: 4,
+                      marginBottom: 8,
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}>
+                      {/* Mini preview of elements */}
+                      {page.elements.slice(0, 5).map((el, i) => (
+                        <div
+                          key={el.id}
+                          style={{
+                            position: 'absolute',
+                            left: `${(typeof el.x === 'number' ? el.x : 0) / 20}%`,
+                            top: `${(typeof el.y === 'number' ? el.y : 0) / 20}%`,
+                            width: `${(typeof el.width === 'number' ? el.width : 50) / 20}%`,
+                            height: `${(typeof el.height === 'number' ? el.height : 50) / 20}%`,
+                            background: el.fill || '#333',
+                            borderRadius: el.borderRadius ? el.borderRadius / 4 : 2,
+                            opacity: 0.7,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    {editingPageId === page.id ? (
+                      <input
+                        type="text"
+                        defaultValue={page.name}
+                        autoFocus
+                        onBlur={(e) => renamePage(page.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') renamePage(page.id, e.currentTarget.value);
+                          if (e.key === 'Escape') setEditingPageId(null);
                         }}
-                        title="Delete"
-                      >
-                        {Icons.trash}
-                      </button>
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(0,0,0,0.3)',
+                          border: '1px solid #8b5cf6',
+                          borderRadius: 4,
+                          padding: '4px 6px',
+                          fontSize: 11,
+                          color: '#e5e5e5',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: '#e5e5e5', marginBottom: 2 }}>
+                          {page.name}
+                        </div>
+                        <div style={{ fontSize: 9, color: '#5a5a5a' }}>
+                          {page.elements.length} elements
+                        </div>
+                      </>
                     )}
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
-          <FileExplorer
-            files={projectFiles}
-            onFileSelect={(file) => file.type === 'file' && setSelectedFile(file.path)}
-            selectedFile={selectedFile}
-            projectName="Portfolio"
-          />
-
-          {/* Layers */}
-          <div className="de-panel-section">
-            <div className="de-panel-header">
-              <span className="de-panel-title">Layers</span>
-              <div className="de-panel-actions">
-                <button className="de-icon-btn">{Icons.plus}</button>
-              </div>
-            </div>
-            <div className="de-panel-content">
-              <div className="de-layers-list">
-                {rootElements.map(el => renderLayerItem(el))}
-              </div>
-            </div>
+          {/* Bottom - AI Chat (60%) */}
+          <div style={{
+            flex: '1 1 60%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            minHeight: 0,
+          }}>
+            <AIChatPanel
+              ref={chatPanelRef}
+              currentFile={selectedFile}
+              currentCode={selectedFile ? fileContents[selectedFile.replace(/^\//, '')] : undefined}
+              projectName={githubRepo?.name || 'Nuovo Progetto'}
+              currentFiles={fileContents}
+              onRestoreSnapshot={(files) => {
+                setFileContents(files);
+                // Optionally refresh the preview
+                if (githubRepo) {
+                  setWebcontainerFiles(files);
+                }
+              }}
+              onApplyCode={(code, filePath) => {
+                if (filePath) {
+                  setFileContents(prev => ({
+                    ...prev,
+                    [filePath.replace(/^\//, '')]: code
+                  }));
+                }
+                if (!githubRepo) {
+                  const projectFiles: Record<string, string> = {
+                    'package.json': JSON.stringify({
+                      name: 'ai-generated-project',
+                      private: true,
+                      version: '0.0.0',
+                      type: 'module',
+                      scripts: { dev: 'vite', build: 'vite build', preview: 'vite preview' },
+                      dependencies: { 'react': '^18.2.0', 'react-dom': '^18.2.0' },
+                      devDependencies: {
+                        '@vitejs/plugin-react': '^4.2.0',
+                        'vite': '^5.0.0',
+                        'autoprefixer': '^10.4.16',
+                        'postcss': '^8.4.32',
+                        'tailwindcss': '^3.4.0'
+                      }
+                    }, null, 2),
+                    'vite.config.js': `import { defineConfig } from 'vite';\nimport react from '@vitejs/plugin-react';\n\nexport default defineConfig({\n  plugins: [react()],\n  server: { host: true }\n});`,
+                    'tailwind.config.js': `/** @type {import('tailwindcss').Config} */\nexport default {\n  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],\n  theme: { extend: {} },\n  plugins: [],\n}`,
+                    'postcss.config.js': `export default {\n  plugins: {\n    tailwindcss: {},\n    autoprefixer: {},\n  },\n}`,
+                    'index.html': `<!DOCTYPE html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Preview</title>\n  </head>\n  <body>\n    <div id="root"></div>\n    <script type="module" src="/src/main.jsx"></script>\n  </body>\n</html>`,
+                    'src/main.jsx': `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\nimport './index.css';\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>\n);`,
+                    'src/index.css': `@tailwind base;\n@tailwind components;\n@tailwind utilities;`,
+                    'src/App.jsx': code,
+                  };
+                  setWebcontainerFiles(projectFiles);
+                  setUseWebContainer(true);
+                }
+              }}
+            />
           </div>
         </div>
 
-        {/* Component Library Sidebar */}
-        {showComponentLibrary && (
-          <div className="de-component-library">
-            <div className="de-panel-header">
-              <span className="de-panel-title">Component Library</span>
-              <button
-                className="de-icon-btn"
-                onClick={() => setShowComponentLibrary(false)}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
+        {/* Center Content */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {viewMode === 'code' ? (
+            /* Code Mode - Full Width Editor */
+            <div style={{ flex: 1, display: 'flex' }}>
+              {/* File Explorer for Code Mode */}
+              <div style={{
+                width: 240,
+                background: '#111',
+                borderRight: '1px solid rgba(255,255,255,0.06)',
+                overflowY: 'auto',
+              }}>
+                <FileExplorer
+                  files={projectFiles}
+                  onFileSelect={(file) => {
+                    if (file.type !== 'file') return;
+                    setSelectedFile(file.path);
+                    if (githubRepo && !fileContents[file.path]) {
+                      const filePath = file.path.startsWith('/') ? file.path.slice(1) : file.path;
+                      fetch(`${API_URL}/api/github/file/${githubRepo.owner}/${githubRepo.name}/${filePath}?userId=${githubRepo.userId}`)
+                        .then(res => res.json())
+                        .then(data => {
+                          if (data.content) {
+                            setFileContents(prev => ({ ...prev, [file.path]: data.content }));
+                          }
+                        })
+                        .catch(err => console.error('Error loading file:', err));
+                    }
+                  }}
+                  selectedFile={selectedFile}
+                  projectName={githubRepo?.name || "Portfolio"}
+                />
+              </div>
+              {/* Code Editor */}
+              <div style={{ flex: 1, background: '#0a0a0a' }}>
+                <CodePanel
+                  elements={elements.map(el => ({
+                    id: el.id,
+                    type: el.type === 'text' ? 'div' : el.type === 'image' ? 'img' : 'div',
+                    className: el.name.toLowerCase().replace(/\s+/g, '-'),
+                    style: {
+                      width: typeof el.width === 'number' ? `${el.width}px` : el.width === 'fill' ? '100%' : 'auto',
+                      height: typeof el.height === 'number' ? `${el.height}px` : el.height === 'fill' ? '100%' : 'auto',
+                      backgroundColor: el.fill,
+                      borderRadius: `${el.borderRadius}px`,
+                    },
+                    children: [],
+                    text: el.content,
+                    props: {},
+                  }))}
+                  showPanel={true}
+                  onClose={() => setViewMode('design')}
+                  selectedFile={selectedFile}
+                  fileContent={selectedFile ? fileContents[selectedFile.replace(/^\//, '')] : undefined}
+                  onFileContentChange={(content) => {
+                    if (selectedFile) {
+                      setFileContents(prev => ({
+                        ...prev,
+                        [selectedFile.replace(/^\//, '')]: content
+                      }));
+                    }
+                  }}
+                />
+              </div>
             </div>
-
-            {/* Search */}
-            <div className="de-library-search">
-              <input
-                type="text"
-                className="de-input"
-                placeholder="Search components..."
-                value={componentSearch}
-                onChange={(e) => setComponentSearch(e.target.value)}
-              />
-            </div>
-
-            {/* Categories */}
-            <div className="de-library-categories">
-              {COMPONENT_LIBRARY.map(cat => (
-                <button
-                  key={cat.id}
-                  className={`de-category-btn ${selectedCategory === cat.id ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(cat.id)}
-                >
-                  <span className="de-category-icon">{Icons[cat.icon]}</span>
-                  <span>{cat.name}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Components Grid */}
-            <div className="de-library-grid">
-              {COMPONENT_LIBRARY.find(c => c.id === selectedCategory)?.components
-                .filter(comp =>
-                  componentSearch === '' ||
-                  comp.name.toLowerCase().includes(componentSearch.toLowerCase()) ||
-                  comp.description.toLowerCase().includes(componentSearch.toLowerCase())
-                )
-                .map(comp => (
-                  <div
-                    key={comp.id}
-                    className="de-component-card"
-                    onClick={() => addComponentFromLibrary(comp)}
-                  >
-                    <div
-                      className="de-component-preview"
-                      style={{ backgroundColor: comp.elements[0]?.fill || '#1a1a1a' }}
+          ) : (
+            /* Design Mode - Canvas */
+            <div style={{ flex: 1, display: 'flex' }}>
+              {/* Component Library Sidebar */}
+              {showComponentLibrary && (
+                <div className="de-component-library">
+                  <div className="de-panel-header">
+                    <span className="de-panel-title">Component Library</span>
+                    <button
+                      className="de-icon-btn"
+                      onClick={() => setShowComponentLibrary(false)}
                     >
-                      <div
-                        className="de-component-mini"
-                        style={{
-                          width: '60%',
-                          height: '60%',
-                          backgroundColor: comp.elements[0]?.fill || '#1a1a1a',
-                          borderRadius: comp.elements[0]?.borderRadius || 8,
-                          border: '1px solid rgba(255,255,255,0.1)',
-                        }}
-                      />
-                    </div>
-                    <div className="de-component-info">
-                      <span className="de-component-name">{comp.name}</span>
-                      <span className="de-component-desc">{comp.description}</span>
-                    </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
                   </div>
-                ))}
-            </div>
-          </div>
-        )}
 
-        {/* Canvas */}
-        <div
-          className="de-canvas-area"
-          ref={canvasAreaRef}
-        >
-          {/* Loading State - mentre il progetto si avvia */}
-          {(projectStatus === 'installing' || projectStatus === 'starting') ? (
-            <div
-              style={{
-                width: activeBreakpoint.width,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, #141414 0%, #1a1a1a 100%)',
-                borderRadius: 12,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
-                gap: 24,
-              }}
-            >
-              {/* Spinner */}
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  border: '3px solid rgba(255,255,255,0.1)',
-                  borderTopColor: '#3b82f6',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                }}
-              />
+                  {/* Search */}
+                  <div className="de-library-search">
+                    <input
+                      type="text"
+                      className="de-input"
+                      placeholder="Search components..."
+                      value={componentSearch}
+                      onChange={(e) => setComponentSearch(e.target.value)}
+                    />
+                  </div>
 
-              {/* Status */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{
-                  color: '#fff',
-                  fontSize: 16,
-                  fontWeight: 500,
-                  marginBottom: 8,
-                }}>
-                  {projectStatus === 'installing' ? 'Installazione dipendenze...' : 'Avvio server...'}
+                  {/* Categories */}
+                  <div className="de-library-categories">
+                    {COMPONENT_LIBRARY.map(cat => (
+                      <button
+                        key={cat.id}
+                        className={`de-category-btn ${selectedCategory === cat.id ? 'active' : ''}`}
+                        onClick={() => setSelectedCategory(cat.id)}
+                      >
+                        <span className="de-category-icon">{Icons[cat.icon]}</span>
+                        <span>{cat.name}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Components Grid */}
+                  <div className="de-library-grid">
+                    {COMPONENT_LIBRARY.find(c => c.id === selectedCategory)?.components
+                      .filter(comp =>
+                        componentSearch === '' ||
+                        comp.name.toLowerCase().includes(componentSearch.toLowerCase()) ||
+                        comp.description.toLowerCase().includes(componentSearch.toLowerCase())
+                      )
+                      .map(comp => (
+                        <div
+                          key={comp.id}
+                          className="de-component-card"
+                          onClick={() => addComponentFromLibrary(comp)}
+                        >
+                          <div
+                            className="de-component-preview"
+                            style={{ backgroundColor: comp.elements[0]?.fill || '#1a1a1a' }}
+                          >
+                            <div
+                              className="de-component-mini"
+                              style={{
+                                width: '60%',
+                                height: '60%',
+                                backgroundColor: comp.elements[0]?.fill || '#1a1a1a',
+                                borderRadius: comp.elements[0]?.borderRadius || 8,
+                                border: '1px solid rgba(255,255,255,0.1)',
+                              }}
+                            />
+                          </div>
+                          <div className="de-component-info">
+                            <span className="de-component-name">{comp.name}</span>
+                            <span className="de-component-desc">{comp.description}</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-                <div style={{
-                  color: 'rgba(255,255,255,0.5)',
-                  fontSize: 13,
-                }}>
-                  {currentProject?.name || 'Progetto'}
-                </div>
-              </div>
+              )}
 
-              {/* Logs */}
+              {/* Canvas */}
               <div
+                className="de-canvas-area"
+                ref={canvasAreaRef}
                 style={{
-                  width: '80%',
-                  maxWidth: 500,
-                  maxHeight: 200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  padding: '20px',
                   overflow: 'auto',
-                  background: 'rgba(0,0,0,0.3)',
-                  borderRadius: 8,
-                  padding: 12,
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: 'rgba(255,255,255,0.6)',
                 }}
               >
-                {projectLogs.slice(-10).map((log, i) => (
-                  <div key={i} style={{ marginBottom: 4 }}>{log}</div>
-                ))}
-              </div>
-            </div>
-          ) : liveMode && projectUrl ? (
-            /* Live Mode - Iframe with running project */
+                {/* Device Frame Indicator with Dropdown */}
+                {(useWebContainer || projectUrl) && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 16,
+                    position: 'relative',
+                  }}>
+                    {/* Edit Mode Toggle */}
+                    {webcontainerReady && (
+                      <button
+                        onClick={() => setVisualEditMode(!visualEditMode)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '8px 14px',
+                          background: visualEditMode ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)',
+                          border: visualEditMode ? '1px solid #8b5cf6' : '1px solid transparent',
+                          borderRadius: 20,
+                          fontSize: 12,
+                          color: visualEditMode ? '#a78bfa' : '#71717a',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!visualEditMode) {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!visualEditMode) {
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                          }
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        {visualEditMode ? 'Editing' : 'Edit'}
+                      </button>
+                    )}
+
+                    {/* Device Selector */}
+                    <div
+                      onClick={() => setShowDeviceDropdown(!showDeviceDropdown)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '8px 16px',
+                        background: 'rgba(255,255,255,0.05)',
+                        borderRadius: 20,
+                        fontSize: 12,
+                        color: '#71717a',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                    >
+                      <span style={{ color: '#a78bfa', fontWeight: 500 }}>{selectedDevice.name}</span>
+                      <span>•</span>
+                      <span>{selectedDevice.width} × {selectedDevice.height}</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 4 }}>
+                        <polyline points={showDeviceDropdown ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} />
+                      </svg>
+                    </div>
+
+                    {/* Current Route */}
+                    {githubRepo && currentPreviewPath && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '8px 14px',
+                          background: 'rgba(74, 222, 128, 0.1)',
+                          border: '1px solid rgba(74, 222, 128, 0.2)',
+                          borderRadius: 20,
+                          fontSize: 12,
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2">
+                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                          <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                        <span style={{ fontFamily: 'monospace', color: '#4ade80', fontWeight: 500 }}>{currentPreviewPath}</span>
+                      </div>
+                    )}
+
+                    {/* Device Dropdown */}
+                    {showDeviceDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        marginTop: 8,
+                        background: '#1a1a1a',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 12,
+                        padding: 8,
+                        minWidth: 280,
+                        maxHeight: 400,
+                        overflow: 'auto',
+                        zIndex: 100,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                      }}>
+                        {(['desktop', 'tablet', 'phone'] as DeviceCategory[]).map(category => (
+                          <div key={category}>
+                            <div style={{
+                              padding: '8px 12px',
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: '#5a5a5a',
+                              textTransform: 'uppercase',
+                              letterSpacing: 1,
+                            }}>
+                              {category === 'desktop' ? '💻 Desktop' : category === 'tablet' ? '📱 Tablet' : '📱 Phone'}
+                            </div>
+                            {DEVICE_PRESETS.filter(d => d.category === category).map(device => (
+                              <div
+                                key={device.id}
+                                onClick={() => {
+                                  setSelectedDevice(device);
+                                  setCurrentBreakpoint(device.category);
+                                  setShowDeviceDropdown(false);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '10px 12px',
+                                  borderRadius: 8,
+                                  cursor: 'pointer',
+                                  background: selectedDevice.id === device.id ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (selectedDevice.id !== device.id) {
+                                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = selectedDevice.id === device.id ? 'rgba(139, 92, 246, 0.2)' : 'transparent';
+                                }}
+                              >
+                                <span style={{
+                                  color: selectedDevice.id === device.id ? '#a78bfa' : '#e5e5e5',
+                                  fontSize: 13,
+                                }}>
+                                  {device.name}
+                                </span>
+                                <span style={{
+                                  color: '#5a5a5a',
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                }}>
+                                  {device.width} × {device.height}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+          {/* Se abbiamo un projectUrl, mostra l'iframe */}
+          {projectUrl && !useWebContainer ? (
             <div
               style={{
                 width: activeBreakpoint.width,
-                height: '100%',
+                minHeight: 'calc(100vh - 200px)',
                 transform: `scale(${zoom})`,
                 transformOrigin: 'top center',
                 background: '#fff',
@@ -2103,109 +2744,114 @@ const DesignEditor: React.FC = () => {
                 position: 'relative',
               }}
             >
-              <iframe
-                ref={iframeRef}
-                src={projectUrl}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                }}
-                title="Live Project Preview"
-              />
-
-              {/* Inspector Overlay */}
-              {isInspecting && (
+              {/* Loading Overlay */}
+              {iframeLoading && (
                 <div
                   style={{
                     position: 'absolute',
-                    inset: 0,
-                    pointerEvents: 'auto',
-                    cursor: 'crosshair',
-                  }}
-                  onMouseMove={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-
-                    // Send coordinates to iframe
-                    iframeRef.current?.contentWindow?.postMessage({
-                      type: 'inspect-at',
-                      x,
-                      y,
-                    }, '*');
-                  }}
-                  onMouseLeave={() => setHoveredElement(null)}
-                  onClick={(e) => {
-                    if (hoveredElement) {
-                      setSelectedLiveElement({
-                        ...hoveredElement,
-                        xpath: '', // Will be set by iframe
-                      });
-                    }
-                  }}
-                />
-              )}
-
-              {/* Hover Highlight */}
-              {hoveredElement && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: hoveredElement.rect.x,
-                    top: hoveredElement.rect.y,
-                    width: hoveredElement.rect.width,
-                    height: hoveredElement.rect.height,
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '2px solid #3b82f6',
-                    borderRadius: 2,
-                    pointerEvents: 'none',
-                    zIndex: 1000,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'linear-gradient(135deg, #141414 0%, #1a1a1a 100%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 16,
+                    zIndex: 10,
                   }}
                 >
-                  {/* Element Label */}
                   <div
                     style={{
-                      position: 'absolute',
-                      top: -24,
-                      left: -2,
-                      background: '#3b82f6',
-                      color: '#fff',
-                      fontSize: 11,
-                      fontWeight: 500,
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      whiteSpace: 'nowrap',
+                      width: 40,
+                      height: 40,
+                      border: '3px solid rgba(255,255,255,0.1)',
+                      borderTopColor: '#8b5cf6',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
                     }}
-                  >
-                    {hoveredElement.tagName.toLowerCase()}
-                    {hoveredElement.className && `.${hoveredElement.className.split(' ')[0]}`}
-                    {hoveredElement.id && `#${hoveredElement.id}`}
+                  />
+                  <div style={{ color: '#a1a1aa', fontSize: 14 }}>
+                    Caricamento preview...
                   </div>
                 </div>
               )}
-
-              {/* Selected Element Highlight */}
-              {selectedLiveElement && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: selectedLiveElement.rect.x,
-                    top: selectedLiveElement.rect.y,
-                    width: selectedLiveElement.rect.width,
-                    height: selectedLiveElement.rect.height,
-                    border: '2px solid #22c55e',
-                    borderRadius: 2,
-                    pointerEvents: 'none',
-                    zIndex: 1001,
+              <iframe
+                ref={iframeRef}
+                src={projectUrl}
+                onLoad={() => setIframeLoading(false)}
+                style={{
+                  width: '100%',
+                  height: 'calc(100vh - 200px)',
+                  border: 'none',
+                }}
+                title="Project Preview"
+                allow="cross-origin-isolated"
+              />
+            </div>
+          ) : useWebContainer ? (
+            /* WebContainer Preview - for AI-generated code */
+            <div
+              style={{
+                width: visualEditMode ? '100%' : selectedDevice.width,
+                maxWidth: visualEditMode ? 1200 : '100%',
+                height: visualEditMode ? 'auto' : selectedDevice.height,
+                minHeight: visualEditMode ? 'calc(100vh - 200px)' : undefined,
+                maxHeight: visualEditMode ? 'none' : 'calc(100vh - 200px)',
+                transform: visualEditMode ? 'none' : `scale(${zoom})`,
+                transformOrigin: 'top center',
+                borderRadius: visualEditMode ? 8 : selectedDevice.category === 'phone' ? 40 : selectedDevice.category === 'tablet' ? 20 : 8,
+                overflow: visualEditMode ? 'visible' : 'hidden',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                border: visualEditMode ? '2px solid #8b5cf6' : selectedDevice.category !== 'desktop' ? '8px solid #1a1a1a' : 'none',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+              }}
+            >
+              {/* Phone notch for mobile view (Dynamic Island style) - hide in edit mode */}
+              {selectedDevice.category === 'phone' && !visualEditMode && (
+                <div style={{
+                  position: 'absolute',
+                  top: 8,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 100,
+                  height: 28,
+                  background: '#000',
+                  borderRadius: 20,
+                  zIndex: 10,
+                }} />
+              )}
+              <WebContainerPreview
+                ref={webContainerPreviewRef}
+                files={webcontainerFiles}
+                autoStart={true}
+                onStatusChange={(status) => {
+                  setWebcontainerReady(status === 'ready');
+                }}
+                onUrlReady={(url) => {
+                  setWebcontainerUrl(url);
+                }}
+                currentPath={currentPreviewPath}
+                onPathChange={setCurrentPreviewPath}
+                width="100%"
+                height={visualEditMode ? '100vh' : '100%'}
+              />
+              {/* Visual Edit Overlay */}
+              {webcontainerReady && (
+                <SelectionOverlay
+                  iframeRef={{ current: getPreviewIframe() }}
+                  enabled={visualEditMode}
+                  zoom={zoom}
+                  onElementSelect={(el) => {
+                    setVisualSelectedElement(el);
+                    if (el?.sourceFile) {
+                      setSelectedFile(el.sourceFile);
+                      setShowCodePanel(true);
+                    }
                   }}
-                >
-                  {/* Resize handles */}
-                  <div style={{ position: 'absolute', top: -4, left: -4, width: 8, height: 8, background: '#22c55e', borderRadius: 2 }} />
-                  <div style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, background: '#22c55e', borderRadius: 2 }} />
-                  <div style={{ position: 'absolute', bottom: -4, left: -4, width: 8, height: 8, background: '#22c55e', borderRadius: 2 }} />
-                  <div style={{ position: 'absolute', bottom: -4, right: -4, width: 8, height: 8, background: '#22c55e', borderRadius: 2 }} />
-                </div>
+                />
               )}
             </div>
           ) : (
@@ -2221,7 +2867,92 @@ const DesignEditor: React.FC = () => {
                 transformOrigin: 'top center',
               }}
             >
-              {rootElements.map(el => renderElement(el))}
+              {/* Design Mode - Show elements or empty state */}
+              {rootElements.length > 0 ? (
+                rootElements.map(el => renderElement(el))
+              ) : (
+                /* Empty state - show options to start */
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 24,
+                  color: '#666',
+                }}>
+                  <div style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 16,
+                    background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
+                      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+                      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+                    </svg>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 500, color: '#fff', marginBottom: 8 }}>
+                      Inizia un nuovo progetto
+                    </div>
+                    <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>
+                      Usa l'AI per generare codice o avvia un progetto vuoto
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button
+                      onClick={() => setUseWebContainer(true)}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: 10,
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                        color: '#fff',
+                        fontSize: 14,
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                      </svg>
+                      Avvia Preview
+                    </button>
+                    <button
+                      onClick={() => setShowComponentLibrary(true)}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(255,255,255,0.05)',
+                        color: '#fff',
+                        fontSize: 14,
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                      </svg>
+                      Componenti
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2232,7 +2963,11 @@ const DesignEditor: React.FC = () => {
                 <button
                   key={bp.id}
                   className={`de-tool-btn ${currentBreakpoint === bp.id ? 'active' : ''}`}
-                  onClick={() => setCurrentBreakpoint(bp.id)}
+                  onClick={() => {
+                    setCurrentBreakpoint(bp.id);
+                    const defaultDevice = DEVICE_PRESETS.find(d => d.category === bp.icon);
+                    if (defaultDevice) setSelectedDevice(defaultDevice);
+                  }}
                   title={`${bp.name} (${bp.width}px)`}
                 >
                   {Icons[bp.icon]}
@@ -2326,17 +3061,43 @@ const DesignEditor: React.FC = () => {
               <button className="de-zoom-btn" onClick={() => setZoom(z => Math.min(4, z + 0.25))}>
                 +
               </button>
-            </div>
-          </div>
-        </div>
+                </div>
+              </div>
+              </div>
 
-        {/* Right Panel - Properties */}
-        <div className="de-right-panel">
+              {/* Right Panel - Properties */}
+              <div className="de-right-panel">
           <div className="de-panel-header">
             <span className="de-panel-title">Properties</span>
           </div>
 
-          {selectedElement ? (
+          {/* Visual Edit Mode - Enhanced Props Panel */}
+          {visualEditMode && visualSelectedElement ? (
+            <VisualPropsPanel
+              element={visualSelectedElement}
+              zoom={zoom}
+              onApplyWithAI={async (element, changes) => {
+                // Build prompt for AI
+                const changeDescriptions = changes.map(c =>
+                  `- ${c.property}: ${c.oldValue} → ${c.newValue}`
+                ).join('\n');
+
+                const prompt = `Update the styles for the ${element.tagName} element${element.className ? ` with class "${element.className.split(' ')[0]}"` : ''}${element.id ? ` and id "${element.id}"` : ''}.
+
+Make these CSS changes:
+${changeDescriptions}
+
+Find the component in the codebase and update the styles. If using Tailwind, convert to Tailwind classes. If using CSS-in-JS or inline styles, update accordingly. Return the complete updated component code.`;
+
+                // Send to AI chat via ref
+                if (chatPanelRef.current) {
+                  await chatPanelRef.current.sendMessage(prompt);
+                } else {
+                  console.warn('Chat panel ref not available');
+                }
+              }}
+            />
+          ) : selectedElement ? (
             <div className="de-properties-scroll">
               {/* Name */}
               <div className="de-prop-group">
@@ -2620,17 +3381,22 @@ const DesignEditor: React.FC = () => {
           )}
         </div>
 
-        {/* Code Panel */}
-        {showCodePanel && (
-          <div className="de-code-panel">
-            <CodePanel
-              elements={codeElements}
-              isVisible={showCodePanel}
-              onToggle={() => setShowCodePanel(!showCodePanel)}
-              componentName="Design"
-            />
-          </div>
-        )}
+              {/* Code Panel in Design Mode - Hide when GitHub project is loaded */}
+              {showCodePanel && !githubRepo && (
+                <div className="de-code-panel">
+                  <CodePanel
+                    elements={codeElements}
+                    isVisible={showCodePanel}
+                    onToggle={() => setShowCodePanel(!showCodePanel)}
+                    componentName="Design"
+                    fileContent={selectedFile ? fileContents[selectedFile] : undefined}
+                    fileName={selectedFile?.split('/').pop()}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Timeline */}
@@ -2684,13 +3450,17 @@ const DesignEditor: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ color: '#4ade80', fontWeight: 500, fontSize: 13 }}>Preview Mode</span>
-              <span style={{ color: '#5a5a5a', fontSize: 12 }}>{activeBreakpoint.name} • {activeBreakpoint.width}px</span>
+              <span style={{ color: '#5a5a5a', fontSize: 12 }}>{selectedDevice.name} • {selectedDevice.width} × {selectedDevice.height}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {BREAKPOINTS.map(bp => (
                 <button
                   key={bp.id}
-                  onClick={() => setCurrentBreakpoint(bp.id)}
+                  onClick={() => {
+                    setCurrentBreakpoint(bp.id);
+                    const defaultDevice = DEVICE_PRESETS.find(d => d.category === bp.icon);
+                    if (defaultDevice) setSelectedDevice(defaultDevice);
+                  }}
                   style={{
                     padding: '6px 10px',
                     background: currentBreakpoint === bp.id ? 'rgba(255,255,255,0.1)' : 'transparent',
@@ -3048,6 +3818,7 @@ const DesignEditor: React.FC = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

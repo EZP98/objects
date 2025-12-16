@@ -11,12 +11,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.56",
     "@babel/generator": "^7.28.5",
     "@babel/parser": "^7.28.5",
     "@babel/types": "^7.28.5",
     "@monaco-editor/react": "^4.7.0",
+    "@stackblitz/sdk": "^1.11.0",
+    "@webcontainer/api": "^1.6.1",
+    "ai": "^5.0.113",
+    "buffer": "^6.0.3",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "isomorphic-git": "^1.36.1",
     "prettier": "^3.7.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

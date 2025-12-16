@@ -12,6 +12,7 @@ interface GitHubRepo {
   htmlUrl: string;
   updatedAt: string;
   language: string | null;
+  homepage: string | null;
 }
 
 interface LocalProject {
@@ -162,68 +163,22 @@ const ProjectsPage: React.FC = () => {
     navigate(`/editor/${projectData.id}`);
   };
 
-  const cloneAndOpen = async (repo: GitHubRepo) => {
-    setCloning(repo.name);
-    setCloneLogs([]);
+  const openRepo = (repo: GitHubRepo) => {
+    // Save repo info to localStorage for the editor
+    const repoData = {
+      id: repo.name,
+      name: repo.name,
+      fullName: repo.fullName,
+      description: repo.description || '',
+      type: 'github',
+      owner: repo.fullName.split('/')[0],
+      userId: githubUser,
+      homepage: repo.homepage || null,
+    };
+    localStorage.setItem('current-github-repo', JSON.stringify(repoData));
 
-    try {
-      // First check if already cloned
-      const checkRes = await fetch(`${API_URL}/api/github/clone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repoUrl: repo.cloneUrl,
-          repoName: repo.name,
-          userId: githubUser,
-        }),
-      });
-
-      // If immediate response (already exists)
-      const contentType = checkRes.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        const data = await checkRes.json();
-        if (data.status === 'exists') {
-          setCloning(null);
-          openProject({ name: repo.name, path: data.path, description: repo.description || '' });
-          return;
-        }
-      }
-
-      // Otherwise it's SSE stream for cloning progress
-      const reader = checkRes.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const text = decoder.decode(value);
-          const lines = text.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data:')) {
-              try {
-                const data = JSON.parse(line.slice(5));
-                if (data.message) {
-                  setCloneLogs(prev => [...prev.slice(-10), data.message]);
-                }
-                if (data.path) {
-                  // Clone complete
-                  setCloning(null);
-                  await fetchLocalProjects();
-                  openProject({ name: repo.name, path: data.path, description: repo.description || '' });
-                  return;
-                }
-              } catch {}
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Clone error:', err);
-    }
-    setCloning(null);
+    // Navigate to editor
+    navigate(`/editor/${repo.name}`);
   };
 
   const filteredRepos = repos.filter(r =>
@@ -494,27 +449,23 @@ const ProjectsPage: React.FC = () => {
                   {filteredRepos.map(repo => (
                     <div
                       key={repo.id}
-                      onClick={() => !cloning && cloneAndOpen(repo)}
+                      onClick={() => openRepo(repo)}
                       style={{
                         padding: 20,
-                        background: cloning === repo.name ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${cloning === repo.name ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255,255,255,0.06)'}`,
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
                         borderRadius: 12,
-                        cursor: cloning ? 'wait' : 'pointer',
+                        cursor: 'pointer',
                         transition: 'all 0.2s',
                         position: 'relative',
                       }}
                       onMouseEnter={e => {
-                        if (!cloning) {
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                        }
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
                       }}
                       onMouseLeave={e => {
-                        if (!cloning) {
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                        }
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
                       }}
                     >
                       {/* Cloning overlay */}

@@ -3,20 +3,57 @@ import Editor, { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { generateFormattedReactCode, DesignElement } from '../utils/codeGenerator';
 
+// Get Monaco language from file extension
+function getLanguageFromFile(filePath?: string): string {
+  if (!filePath) return 'typescript';
+  const ext = filePath.split('.').pop()?.toLowerCase();
+  const languageMap: Record<string, string> = {
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'json': 'json',
+    'html': 'html',
+    'css': 'css',
+    'scss': 'scss',
+    'less': 'less',
+    'md': 'markdown',
+    'yaml': 'yaml',
+    'yml': 'yaml',
+    'xml': 'xml',
+    'svg': 'xml',
+    'py': 'python',
+    'sh': 'shell',
+    'bash': 'shell',
+    'sql': 'sql',
+    'graphql': 'graphql',
+    'gql': 'graphql',
+  };
+  return languageMap[ext || ''] || 'plaintext';
+}
+
 interface CodePanelProps {
   elements: DesignElement[];
-  isVisible: boolean;
-  onToggle: () => void;
+  showPanel?: boolean;
+  onClose?: () => void;
   onCodeChange?: (code: string) => void;
   componentName?: string;
+  fileContent?: string;
+  fileName?: string;
+  selectedFile?: string;
+  onFileContentChange?: (content: string) => void;
 }
 
 const CodePanel: React.FC<CodePanelProps> = ({
   elements,
-  isVisible,
-  onToggle,
+  showPanel = true,
+  onClose,
   onCodeChange,
   componentName = 'DesignComponent',
+  fileContent,
+  fileName,
+  selectedFile,
+  onFileContentChange,
 }) => {
   const [code, setCode] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -24,8 +61,17 @@ const CodePanel: React.FC<CodePanelProps> = ({
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const lastElementsRef = useRef<string>('');
 
-  // Generate code when elements change
+  // Use file content if provided
   useEffect(() => {
+    if (fileContent !== undefined) {
+      setCode(fileContent);
+    }
+  }, [fileContent]);
+
+  // Generate code when elements change (only if no file content)
+  useEffect(() => {
+    if (fileContent !== undefined) return;
+
     const elementsJson = JSON.stringify(elements);
 
     // Skip if elements haven't changed
@@ -76,7 +122,7 @@ const CodePanel: React.FC<CodePanelProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  if (!isVisible) {
+  if (!showPanel) {
     return null;
   }
 
@@ -110,9 +156,14 @@ const CodePanel: React.FC<CodePanelProps> = ({
             <polyline points="16 18 22 12 16 6" />
             <polyline points="8 6 2 12 8 18" />
           </svg>
-          <span style={{ color: '#e9e8e3', fontWeight: 500, fontSize: 13 }}>Live React Code</span>
+          <span style={{ color: '#e9e8e3', fontWeight: 500, fontSize: 13 }}>
+            {selectedFile ? selectedFile.split('/').pop() : 'Live React Code'}
+          </span>
           {isGenerating && (
             <span style={{ color: '#fbbf24', fontSize: 11, fontWeight: 500 }}>Generating...</span>
+          )}
+          {selectedFile && (
+            <span style={{ color: '#5a5a5a', fontSize: 11 }}>{selectedFile}</span>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -182,7 +233,7 @@ const CodePanel: React.FC<CodePanelProps> = ({
             </svg>
           </button>
           <button
-            onClick={onToggle}
+            onClick={onClose}
             style={{
               padding: 8,
               background: 'transparent',
@@ -213,35 +264,80 @@ const CodePanel: React.FC<CodePanelProps> = ({
         </div>
       </div>
 
-      {/* Monaco Editor */}
+      {/* Monaco Editor or Placeholder */}
       <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        <Editor
-          height="100%"
-          defaultLanguage="typescript"
-          value={code}
-          theme="vs-dark"
-          onMount={handleEditorMount}
-          options={{
-            readOnly: false,
-            minimap: { enabled: false },
-            fontSize: 12,
-            fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
-            fontLigatures: true,
-            lineNumbers: 'on',
-            renderLineHighlight: 'line',
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 2,
-            wordWrap: 'on',
-            padding: { top: 12, bottom: 12 },
-            smoothScrolling: true,
-            cursorBlinking: 'smooth',
-            cursorSmoothCaretAnimation: 'on',
-            bracketPairColorization: { enabled: true },
-            lineHeight: 1.6,
-            letterSpacing: 0.3,
-          }}
-        />
+        {!selectedFile ? (
+          <div style={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            color: '#5a5a5a',
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 14, marginBottom: 4 }}>Seleziona un file</div>
+              <div style={{ fontSize: 12, color: '#404040' }}>Clicca su un file nella lista per visualizzare il codice</div>
+            </div>
+          </div>
+        ) : code === '[binary file]' ? (
+          <div style={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            color: '#5a5a5a',
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 14, marginBottom: 4 }}>File binario</div>
+              <div style={{ fontSize: 12, color: '#404040' }}>Questo file non può essere visualizzato come testo</div>
+            </div>
+          </div>
+        ) : (
+          <Editor
+            height="100%"
+            language={getLanguageFromFile(selectedFile)}
+            value={code}
+            theme="vs-dark"
+            onMount={handleEditorMount}
+            onChange={(value) => {
+              setCode(value || '');
+              onFileContentChange?.(value || '');
+            }}
+            options={{
+              readOnly: false,
+              minimap: { enabled: false },
+              fontSize: 12,
+              fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+              fontLigatures: true,
+              lineNumbers: 'on',
+              renderLineHighlight: 'line',
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              tabSize: 2,
+              wordWrap: 'on',
+              padding: { top: 12, bottom: 12 },
+              smoothScrolling: true,
+              cursorBlinking: 'smooth',
+              cursorSmoothCaretAnimation: 'on',
+              bracketPairColorization: { enabled: true },
+              lineHeight: 1.6,
+              letterSpacing: 0.3,
+            }}
+          />
+        )}
       </div>
 
       {/* Footer Stats */}
@@ -257,12 +353,22 @@ const CodePanel: React.FC<CodePanelProps> = ({
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span>{elements.length} elements</span>
-          <span>{elements.filter(e => e.animations.length > 0).length} animated</span>
+          {selectedFile ? (
+            <span>{code.split('\n').length} righe</span>
+          ) : (
+            <>
+              <span>{elements.length} elementi</span>
+              <span>{elements.filter(e => e.animations.length > 0).length} animati</span>
+            </>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ color: '#4ade80', fontWeight: 500 }}>TSX</span>
-          <span style={{ color: '#5a5a5a' }}>Framer Motion</span>
+          <span style={{ color: '#4ade80', fontWeight: 500 }}>
+            {selectedFile ? selectedFile.split('.').pop()?.toUpperCase() || 'TXT' : 'TSX'}
+          </span>
+          <span style={{ color: '#5a5a5a' }}>
+            {selectedFile ? getLanguageFromFile(selectedFile) : 'Framer Motion'}
+          </span>
         </div>
       </div>
     </div>
