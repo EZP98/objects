@@ -919,6 +919,8 @@ const DesignEditor: React.FC = () => {
   const [showTimeline, setShowTimeline] = useState(false);
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [projectFiles, setProjectFiles] = useState<FileNode[]>(sampleProjectFiles);
   const [selectedFile, setSelectedFile] = useState<string | undefined>(undefined);
@@ -2284,34 +2286,127 @@ const DesignEditor: React.FC = () => {
       <div className="de-main">
         {/* Left Sidebar - Pages/Frames (top) + Chat (bottom) */}
         <div style={{
-          width: 320,
-          minWidth: 320,
+          width: leftPanelCollapsed ? 48 : 320,
+          minWidth: leftPanelCollapsed ? 48 : 320,
           background: '#111',
           borderRight: '1px solid rgba(255,255,255,0.06)',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
           overflow: 'hidden',
+          transition: 'all 0.2s ease',
         }}>
-          {/* Top - Pages/Frames as Thumbnails (40%) */}
+          {/* Collapsed state - just icons */}
+          {leftPanelCollapsed ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 8 }}>
+              <button
+                onClick={() => setLeftPanelCollapsed(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.05)',
+                  color: '#a1a1a1',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Expand panels"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+              <button
+                onClick={() => { setLeftPanelCollapsed(false); }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#6b6b6b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Pages"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => { setLeftPanelCollapsed(false); setChatCollapsed(false); }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#6b6b6b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Chat"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+          <>
+          {/* Top - Pages/Frames as Thumbnails */}
           <div style={{
-            flex: '0 0 40%',
+            flex: chatCollapsed ? 1 : '0 0 40%',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            transition: 'flex 0.2s ease',
           }}>
             <div style={{
-              padding: '12px 16px',
+              padding: '8px 12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#e5e5e5' }}>
-                {githubRepo ? 'Pages' : 'Frames'}
-              </span>
-              <span style={{ fontSize: 10, color: '#5a5a5a' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => setLeftPanelCollapsed(true)}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#6b6b6b',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  title="Collapse panel"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#a1a1a1', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {githubRepo ? 'Pages' : 'Frames'}
+                </span>
+              </div>
+              <span style={{ fontSize: 10, color: '#5a5a5a', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>
                 {githubRepo ? discoveredPages.length : pages.length}
               </span>
             </div>
@@ -2459,14 +2554,50 @@ const DesignEditor: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom - AI Chat (60%) */}
+          {/* Bottom - AI Chat */}
           <div style={{
-            flex: '1 1 60%',
+            flex: chatCollapsed ? '0 0 40px' : '1 1 60%',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
             minHeight: 0,
+            transition: 'flex 0.2s ease',
           }}>
+            {/* Chat Header */}
+            <div style={{
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              cursor: 'pointer',
+            }}
+            onClick={() => setChatCollapsed(!chatCollapsed)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#a1a1a1', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Chat
+                </span>
+              </div>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6b6b6b"
+                strokeWidth="2"
+                style={{
+                  transform: chatCollapsed ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s ease',
+                }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+            {!chatCollapsed && (
             <AIChatPanel
               ref={chatPanelRef}
               currentFile={selectedFile}
@@ -2517,7 +2648,10 @@ const DesignEditor: React.FC = () => {
                 }
               }}
             />
+            )}
           </div>
+          </>
+          )}
         </div>
 
         {/* Center Content */}
@@ -2639,20 +2773,7 @@ const DesignEditor: React.FC = () => {
               {/* Code Editor */}
               <div style={{ flex: 1, background: '#0a0a0a' }}>
                 <CodePanel
-                  elements={elements.map(el => ({
-                    id: el.id,
-                    type: el.type === 'text' ? 'div' : el.type === 'image' ? 'img' : 'div',
-                    className: el.name.toLowerCase().replace(/\s+/g, '-'),
-                    style: {
-                      width: typeof el.width === 'number' ? `${el.width}px` : el.width === 'fill' ? '100%' : 'auto',
-                      height: typeof el.height === 'number' ? `${el.height}px` : el.height === 'fill' ? '100%' : 'auto',
-                      backgroundColor: el.fill,
-                      borderRadius: `${el.borderRadius}px`,
-                    },
-                    children: [],
-                    text: el.content,
-                    props: {},
-                  }))}
+                  elements={[]}
                   showPanel={true}
                   onClose={() => setViewMode('design')}
                   selectedFile={selectedFile}
@@ -3782,8 +3903,8 @@ Find the component in the codebase and update the styles. If using Tailwind, con
                 <div className="de-code-panel">
                   <CodePanel
                     elements={codeElements}
-                    isVisible={showCodePanel}
-                    onToggle={() => setShowCodePanel(!showCodePanel)}
+                    showPanel={showCodePanel}
+                    onClose={() => setShowCodePanel(false)}
                     componentName="Design"
                     fileContent={selectedFile ? fileContents[selectedFile] : undefined}
                     fileName={selectedFile?.split('/').pop()}
