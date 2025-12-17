@@ -6,16 +6,17 @@ import CodePanel from './components/CodePanel';
 import FileExplorer, { FileNode } from './components/FileExplorer';
 import AIChatPanel, { AIChatPanelRef } from './components/AIChatPanel';
 import WebContainerPreview, { WebContainerPreviewRef } from './components/WebContainerPreview';
-import SelectionOverlay, { SelectedElement } from './components/SelectionOverlay';
-import VisualPropsPanel from './components/VisualPropsPanel';
+import VisualPropsPanel, { SelectedElement } from './components/VisualPropsPanel';
 import { ErrorAlertsContainer, AlertError } from './components/ActionableAlert';
 import { DesignElement as CodeElement } from './utils/codeGenerator';
 import { discoverPages, DiscoveredPage } from './lib/pageDiscovery';
 import { getProjectById, type Project } from './ProjectsPage';
 import { useWebContainer } from './lib/hooks/useWebContainer';
 import { useGit } from './lib/hooks/useGit';
-import { getWebContainer, injectBridgeIntoContainer } from './lib/webcontainer';
+import { getWebContainer } from './lib/webcontainer';
 import { useAgenticErrors, buildErrorContext } from './lib/hooks/useAgenticErrors';
+// NOTE: Visual editing is being migrated to the new editable-runtime system
+// See packages/editable-runtime and src/components/EditablePreview
 
 // API URL for production/development
 const API_URL = import.meta.env.PROD
@@ -1449,14 +1450,8 @@ const DesignEditor: React.FC = () => {
 
         setProjectLogs(prev => [...prev, `Cloned ${Object.keys(files).length} files`]);
 
-        // Inject visual edit bridge into the cloned project
-        try {
-          const container = await getWebContainer();
-          await injectBridgeIntoContainer(container, '/home/project');
-          setProjectLogs(prev => [...prev, 'Injected visual edit bridge']);
-        } catch (e) {
-          console.warn('[DesignEditor] Failed to inject bridge:', e);
-        }
+        // NOTE: Visual edit bridge injection removed - now using editable-runtime
+        // The new system generates code with Editable wrappers instead of injecting
 
         // Build file tree for sidebar
         const fileTree: FileNode[] = [];
@@ -3454,40 +3449,35 @@ const DesignEditor: React.FC = () => {
                       height={visualEditMode ? '100vh' : '100%'}
                     />
                   </div>
-                  {/* Visual Edit Overlay */}
-                  {webcontainerReady && (
-                    <SelectionOverlay
-                      iframeRef={wcIframeRef}
-                      enabled={visualEditMode}
-                      zoom={zoom}
-                      onElementSelect={(el) => {
-                        setVisualSelectedElement(el);
-                        if (el?.sourceLocation?.fileName) {
-                          setSelectedFile(el.sourceLocation.fileName);
-                          setShowCodePanel(true);
-                        }
+                  {/* Visual Edit Overlay - temporarily disabled during migration to editable-runtime */}
+                  {/* The new visual editing system uses PreviewManager from EditablePreview */}
+                  {webcontainerReady && visualEditMode && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%)',
+                        color: '#fff',
+                        padding: '8px 16px',
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        zIndex: 50,
+                        pointerEvents: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        boxShadow: '0 2px 10px rgba(139, 92, 246, 0.3)',
                       }}
-                      onElementHover={(el) => {
-                        if (el) {
-                          console.log('Hovering:', el.tagName);
-                        }
-                      }}
-                      onStyleChange={(xpath, property, value) => {
-                        if (visualSelectedElement && chatPanelRef.current) {
-                          const sourceInfo = visualSelectedElement.sourceLocation
-                            ? ` in ${visualSelectedElement.sourceLocation.fileName}:${visualSelectedElement.sourceLocation.lineNumber}`
-                            : '';
-                          const prompt = `Update the ${property} to "${value}" for the ${visualSelectedElement.tagName} element${visualSelectedElement.className ? ` with class "${visualSelectedElement.className.split(' ')[0]}"` : ''}${sourceInfo}. Find and update the source code.`;
-                          chatPanelRef.current.sendMessage(prompt);
-                        }
-                      }}
-                      onPositionChange={(deltaX, deltaY) => {
-                        console.log('Position delta:', deltaX, deltaY);
-                      }}
-                      onSizeChange={(width, height) => {
-                        console.log('New size:', width, height);
-                      }}
-                    />
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                      Edit Mode - Migrating to new system
+                    </div>
                   )}
                 </div>
               );

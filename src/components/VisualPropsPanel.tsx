@@ -6,7 +6,38 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { SelectedElement, SourceLocation } from './SelectionOverlay';
+
+// Types (previously from SelectionOverlay, now local)
+export interface SourceLocation {
+  fileName: string;
+  lineNumber: number;
+  columnNumber?: number;
+  source: 'attribute' | 'parent' | 'fiber';
+}
+
+export interface SelectedElement {
+  tagName: string;
+  className: string;
+  id: string;
+  rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+    right: number;
+    bottom: number;
+  };
+  styles: Record<string, string>;
+  xpath: string;
+  textContent?: string | null;
+  componentName?: string | null;
+  componentStack?: string[];
+  componentProps?: Record<string, unknown>;
+  sourceLocation?: SourceLocation | null;
+  attributes?: Record<string, string>;
+}
 
 interface StyleChange {
   property: string;

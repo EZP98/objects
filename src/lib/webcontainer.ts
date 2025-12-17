@@ -1,5 +1,4 @@
 import { WebContainer } from '@webcontainer/api';
-import { VISUAL_EDIT_BRIDGE_SCRIPT } from './visualEditBridge';
 
 // Singleton WebContainer instance
 let webcontainerInstance: WebContainer | null = null;
@@ -268,75 +267,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   };
 }
 
-/**
- * Inject the visual edit bridge into an existing WebContainer project
- * This is used after git clone when files are already written
- */
-export async function injectBridgeIntoContainer(
-  container: WebContainer,
-  baseDir: string = '/home/project'
-): Promise<void> {
-  console.log('[WebContainer] Injecting bridge into existing container...');
-
-  // Try multiple possible locations for index.html
-  const possiblePaths = [
-    `${baseDir}/index.html`,
-    `${baseDir}/public/index.html`,
-    `${baseDir}/src/index.html`,
-    `${baseDir}/app/index.html`,
-  ];
-
-  let indexPath: string | null = null;
-  let indexContent: string | null = null;
-
-  // Find the first existing index.html
-  for (const path of possiblePaths) {
-    try {
-      indexContent = await container.fs.readFile(path, 'utf-8');
-      indexPath = path;
-      console.log(`[WebContainer] Found index.html at: ${path}`);
-      break;
-    } catch (e) {
-      // File doesn't exist, try next path
-    }
-  }
-
-  if (!indexPath || !indexContent) {
-    console.error('[WebContainer] Could not find index.html in any of:', possiblePaths);
-    return;
-  }
-
-  try {
-    // Check if bridge is already injected
-    if (indexContent.includes('__VISUAL_EDIT_BRIDGE__') || indexContent.includes('data-visual-bridge')) {
-      console.log('[WebContainer] Bridge already present in index.html');
-      return;
-    }
-
-    const bridgeScript = `<script data-visual-bridge="true">${VISUAL_EDIT_BRIDGE_SCRIPT}</script>`;
-    let modifiedContent = indexContent;
-
-    // Try to inject after <head>
-    const headMatch = indexContent.match(/<head[^>]*>/i);
-    if (headMatch) {
-      modifiedContent = indexContent.replace(headMatch[0], `${headMatch[0]}\n    ${bridgeScript}`);
-      console.log('[WebContainer] Injected inline bridge after <head>');
-    } else {
-      // Fallback: inject before </body>
-      const bodyMatch = indexContent.match(/<\/body>/i);
-      if (bodyMatch) {
-        modifiedContent = indexContent.replace(bodyMatch[0], `    ${bridgeScript}\n  ${bodyMatch[0]}`);
-        console.log('[WebContainer] Injected inline bridge before </body>');
-      } else {
-        console.warn('[WebContainer] Could not find injection point in index.html');
-        return;
-      }
-    }
-
-    await container.fs.writeFile(indexPath, modifiedContent);
-    console.log(`[WebContainer] Updated ${indexPath} with inline bridge script`);
-
-  } catch (e) {
-    console.error('[WebContainer] Failed to modify index.html:', e);
-  }
-}
+// NOTE: Old bridge injection removed - now using @objects/editable-runtime
+// The runtime is included in generated code, not injected after the fact
