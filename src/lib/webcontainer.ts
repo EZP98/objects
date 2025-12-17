@@ -278,12 +278,35 @@ export async function injectBridgeIntoContainer(
 ): Promise<void> {
   console.log('[WebContainer] Injecting bridge into existing container...');
 
-  // Read and modify index.html with inline script
-  // (external files get 403 from WebContainer CDN)
-  const indexPath = `${baseDir}/index.html`;
-  try {
-    const indexContent = await container.fs.readFile(indexPath, 'utf-8');
+  // Try multiple possible locations for index.html
+  const possiblePaths = [
+    `${baseDir}/index.html`,
+    `${baseDir}/public/index.html`,
+    `${baseDir}/src/index.html`,
+    `${baseDir}/app/index.html`,
+  ];
 
+  let indexPath: string | null = null;
+  let indexContent: string | null = null;
+
+  // Find the first existing index.html
+  for (const path of possiblePaths) {
+    try {
+      indexContent = await container.fs.readFile(path, 'utf-8');
+      indexPath = path;
+      console.log(`[WebContainer] Found index.html at: ${path}`);
+      break;
+    } catch (e) {
+      // File doesn't exist, try next path
+    }
+  }
+
+  if (!indexPath || !indexContent) {
+    console.error('[WebContainer] Could not find index.html in any of:', possiblePaths);
+    return;
+  }
+
+  try {
     // Check if bridge is already injected
     if (indexContent.includes('__VISUAL_EDIT_BRIDGE__') || indexContent.includes('data-visual-bridge')) {
       console.log('[WebContainer] Bridge already present in index.html');
@@ -311,7 +334,7 @@ export async function injectBridgeIntoContainer(
     }
 
     await container.fs.writeFile(indexPath, modifiedContent);
-    console.log('[WebContainer] Updated index.html with inline bridge script');
+    console.log(`[WebContainer] Updated ${indexPath} with inline bridge script`);
 
   } catch (e) {
     console.error('[WebContainer] Failed to modify index.html:', e);
