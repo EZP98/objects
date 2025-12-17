@@ -597,17 +597,9 @@ export const VISUAL_EDIT_BRIDGE_SCRIPT = `
 
     const style = document.createElement('style');
     style.id = 'visual-edit-styles';
-    style.textContent = \`
-      /* Visual edit mode styles */
-      [data-visual-edit-hover] {
-        outline: 2px solid #60a5fa !important;
-        outline-offset: 2px !important;
-      }
-      [data-visual-edit-selected] {
-        outline: 2px solid #8b5cf6 !important;
-        outline-offset: 2px !important;
-      }
-    \`;
+    style.textContent = '/* Visual edit mode styles */ ' +
+      '[data-visual-edit-hover] { outline: 2px solid #60a5fa !important; outline-offset: 2px !important; } ' +
+      '[data-visual-edit-selected] { outline: 2px solid #8b5cf6 !important; outline-offset: 2px !important; }';
     document.head.appendChild(style);
   }
 

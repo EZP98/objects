@@ -1,4 +1,5 @@
 import { WebContainer } from '@webcontainer/api';
+import { VISUAL_EDIT_BRIDGE_SCRIPT } from './visualEditBridge';
 
 // Singleton WebContainer instance
 let webcontainerInstance: WebContainer | null = null;
@@ -265,4 +266,54 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
     'src/App.jsx': appCode,
   };
+}
+
+/**
+ * Inject the visual edit bridge into an existing WebContainer project
+ * This is used after git clone when files are already written
+ */
+export async function injectBridgeIntoContainer(
+  container: WebContainer,
+  baseDir: string = '/home/project'
+): Promise<void> {
+  console.log('[WebContainer] Injecting bridge into existing container...');
+
+  // Read and modify index.html with inline script
+  // (external files get 403 from WebContainer CDN)
+  const indexPath = `${baseDir}/index.html`;
+  try {
+    const indexContent = await container.fs.readFile(indexPath, 'utf-8');
+
+    // Check if bridge is already injected
+    if (indexContent.includes('__VISUAL_EDIT_BRIDGE__') || indexContent.includes('data-visual-bridge')) {
+      console.log('[WebContainer] Bridge already present in index.html');
+      return;
+    }
+
+    const bridgeScript = `<script data-visual-bridge="true">${VISUAL_EDIT_BRIDGE_SCRIPT}</script>`;
+    let modifiedContent = indexContent;
+
+    // Try to inject after <head>
+    const headMatch = indexContent.match(/<head[^>]*>/i);
+    if (headMatch) {
+      modifiedContent = indexContent.replace(headMatch[0], `${headMatch[0]}\n    ${bridgeScript}`);
+      console.log('[WebContainer] Injected inline bridge after <head>');
+    } else {
+      // Fallback: inject before </body>
+      const bodyMatch = indexContent.match(/<\/body>/i);
+      if (bodyMatch) {
+        modifiedContent = indexContent.replace(bodyMatch[0], `    ${bridgeScript}\n  ${bodyMatch[0]}`);
+        console.log('[WebContainer] Injected inline bridge before </body>');
+      } else {
+        console.warn('[WebContainer] Could not find injection point in index.html');
+        return;
+      }
+    }
+
+    await container.fs.writeFile(indexPath, modifiedContent);
+    console.log('[WebContainer] Updated index.html with inline bridge script');
+
+  } catch (e) {
+    console.error('[WebContainer] Failed to modify index.html:', e);
+  }
 }

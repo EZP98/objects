@@ -32,13 +32,16 @@ export interface UseWebContainerReturn {
  * Inject the visual edit bridge script into HTML files
  * This enables communication between the editor and the preview iframe
  *
- * We inject at the START of <head> to ensure the bridge loads first,
- * before any other scripts that might interfere.
+ * We create the bridge as a SEPARATE FILE to avoid CSP issues with inline scripts.
+ * Then we add a <script src="..."> reference to it.
  */
 function injectBridgeIntoFiles(files: Record<string, string>): Record<string, string> {
   const result = { ...files };
-  // Wrap in script tag - using type="module" for better compatibility
-  const bridgeScript = `<script type="text/javascript" data-visual-bridge="true">${VISUAL_EDIT_BRIDGE_SCRIPT}</script>`;
+
+  // Inject bridge as inline script (external files get 403 from WebContainer CDN)
+  // The script is wrapped in an IIFE so it's self-contained
+  const bridgeScript = `<script data-visual-bridge="true">${VISUAL_EDIT_BRIDGE_SCRIPT}</script>`;
+  console.log('[WebContainer] Will inject bridge as inline script');
 
   // Log all file paths for debugging
   const allPaths = Object.keys(files);
@@ -60,7 +63,7 @@ function injectBridgeIntoFiles(files: Record<string, string>): Record<string, st
     }
 
     // Avoid double injection
-    if (content.includes('__VISUAL_EDIT_BRIDGE__') || content.includes('data-visual-bridge')) {
+    if (content.includes('__VISUAL_EDIT_BRIDGE__') || content.includes('data-visual-bridge') || content.includes('visual-edit-bridge.js')) {
       console.log('[WebContainer] Bridge already present in:', path);
       continue;
     }

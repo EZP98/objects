@@ -14,6 +14,7 @@ import { discoverPages, DiscoveredPage } from './lib/pageDiscovery';
 import { getProjectById, type Project } from './ProjectsPage';
 import { useWebContainer } from './lib/hooks/useWebContainer';
 import { useGit } from './lib/hooks/useGit';
+import { getWebContainer, injectBridgeIntoContainer } from './lib/webcontainer';
 import { useAgenticErrors, buildErrorContext } from './lib/hooks/useAgenticErrors';
 
 // API URL for production/development
@@ -1428,6 +1429,15 @@ const DesignEditor: React.FC = () => {
         const { files } = await gitClone(repoUrl);
 
         setProjectLogs(prev => [...prev, `Cloned ${Object.keys(files).length} files`]);
+
+        // Inject visual edit bridge into the cloned project
+        try {
+          const container = await getWebContainer();
+          await injectBridgeIntoContainer(container, '/home/project');
+          setProjectLogs(prev => [...prev, 'Injected visual edit bridge']);
+        } catch (e) {
+          console.warn('[DesignEditor] Failed to inject bridge:', e);
+        }
 
         // Build file tree for sidebar
         const fileTree: FileNode[] = [];
