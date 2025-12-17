@@ -7,6 +7,8 @@ import FileExplorer, { FileNode } from './components/FileExplorer';
 import AIChatPanel, { AIChatPanelRef } from './components/AIChatPanel';
 import WebContainerPreview, { WebContainerPreviewRef } from './components/WebContainerPreview';
 import VisualPropsPanel, { SelectedElement } from './components/VisualPropsPanel';
+import { PreviewManager, PropsPanel } from './components/EditablePreview';
+import type { PreviewManagerRef, SelectedElement as EditableSelectedElement } from './components/EditablePreview/PreviewManager';
 import { ErrorAlertsContainer, AlertError } from './components/ActionableAlert';
 import { DesignElement as CodeElement } from './utils/codeGenerator';
 import { discoverPages, DiscoveredPage } from './lib/pageDiscovery';
@@ -15,8 +17,6 @@ import { useWebContainer } from './lib/hooks/useWebContainer';
 import { useGit } from './lib/hooks/useGit';
 import { getWebContainer } from './lib/webcontainer';
 import { useAgenticErrors, buildErrorContext } from './lib/hooks/useAgenticErrors';
-// NOTE: Visual editing is being migrated to the new editable-runtime system
-// See packages/editable-runtime and src/components/EditablePreview
 
 // API URL for production/development
 const API_URL = import.meta.env.PROD
@@ -969,8 +969,12 @@ const DesignEditor: React.FC = () => {
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const webContainerPreviewRef = useRef<WebContainerPreviewRef>(null);
   const chatPanelRef = useRef<AIChatPanelRef>(null);
+  const previewManagerRef = useRef<PreviewManagerRef>(null);
 
-  // Stable iframe ref for SelectionOverlay
+  // State for new editable-runtime selected element
+  const [editableSelectedElement, setEditableSelectedElement] = useState<EditableSelectedElement | null>(null);
+
+  // Stable iframe ref for PreviewManager overlay
   // This ref is synced with the WebContainerPreview's iframe when it becomes ready
   const wcIframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -1004,6 +1008,32 @@ const DesignEditor: React.FC = () => {
     // Small delay to let React render the iframe
     setTimeout(syncIframeRef, 50);
   }, [webcontainerReady, getPreviewIframe]);
+
+  // Toggle edit mode on PreviewManager when visualEditMode changes
+  useEffect(() => {
+    if (!previewManagerRef.current) return;
+
+    if (visualEditMode) {
+      previewManagerRef.current.enableEditMode();
+    } else {
+      previewManagerRef.current.disableEditMode();
+      setEditableSelectedElement(null);
+    }
+  }, [visualEditMode]);
+
+  // Handle element selection from PreviewManager
+  const handleEditableElementSelect = useCallback((element: EditableSelectedElement | null) => {
+    setEditableSelectedElement(element);
+    console.log('[DesignEditor] Editable element selected:', element);
+  }, []);
+
+  // Handle props change from PreviewManager - update source code
+  const handleEditablePropsChange = useCallback((id: string, props: Record<string, unknown>) => {
+    console.log('[DesignEditor] Props changed for', id, ':', props);
+    // TODO: Update source code with new props
+    // This will require finding the component in the code and updating its props
+  }, []);
+
   const [hoveredElement, setHoveredElement] = useState<{
     tagName: string;
     className: string;
@@ -3449,35 +3479,20 @@ const DesignEditor: React.FC = () => {
                       height={visualEditMode ? '100vh' : '100%'}
                     />
                   </div>
-                  {/* Visual Edit Overlay - temporarily disabled during migration to editable-runtime */}
-                  {/* The new visual editing system uses PreviewManager from EditablePreview */}
-                  {webcontainerReady && visualEditMode && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 8,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%)',
-                        color: '#fff',
-                        padding: '8px 16px',
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        zIndex: 50,
-                        pointerEvents: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        boxShadow: '0 2px 10px rgba(139, 92, 246, 0.3)',
+                  {/* Visual Edit Overlay - using PreviewManager from EditablePreview */}
+                  {webcontainerReady && (
+                    <PreviewManager
+                      ref={previewManagerRef}
+                      previewUrl={webcontainerUrl}
+                      externalIframeRef={wcIframeRef}
+                      overlayOnly={true}
+                      zoom={zoom}
+                      onElementSelect={handleEditableElementSelect}
+                      onPropsChange={handleEditablePropsChange}
+                      onReady={() => {
+                        console.log('[DesignEditor] Editable runtime ready!');
                       }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                      Edit Mode - Migrating to new system
-                    </div>
+                    />
                   )}
                 </div>
               );

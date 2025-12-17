@@ -41,6 +41,8 @@ export interface PreviewManagerRef {
 interface PreviewManagerProps {
   /** Preview URL from WebContainer */
   previewUrl: string | null;
+  /** External iframe ref (if provided, uses existing iframe instead of creating one) */
+  externalIframeRef?: React.RefObject<HTMLIFrameElement | null>;
   /** Called when an element is selected in the preview */
   onElementSelect?: (element: SelectedElement | null) => void;
   /** Called when hovering over an element */
@@ -57,6 +59,8 @@ interface PreviewManagerProps {
   height?: number | string;
   /** Zoom level */
   zoom?: number;
+  /** Whether to show as overlay only (no iframe) */
+  overlayOnly?: boolean;
 }
 
 // ============================================
@@ -67,6 +71,7 @@ export const PreviewManager = forwardRef<PreviewManagerRef, PreviewManagerProps>
   (
     {
       previewUrl,
+      externalIframeRef,
       onElementSelect,
       onElementHover,
       onReady,
@@ -75,10 +80,13 @@ export const PreviewManager = forwardRef<PreviewManagerRef, PreviewManagerProps>
       width = '100%',
       height = '100%',
       zoom = 1,
+      overlayOnly = false,
     },
     ref
   ) => {
-    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const internalIframeRef = useRef<HTMLIFrameElement>(null);
+    // Use external iframe if provided, otherwise use internal
+    const iframeRef = externalIframeRef || internalIframeRef;
     const [isReady, setIsReady] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [hoverRect, setHoverRect] = useState<ElementRect | null>(null);
@@ -227,6 +235,101 @@ export const PreviewManager = forwardRef<PreviewManagerRef, PreviewManagerProps>
     // Render
     // ==========================================
 
+    // In overlay mode, only render overlays (no iframe)
+    if (overlayOnly) {
+      return (
+        <>
+          {/* Edit mode indicator */}
+          {editMode && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 8,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: isReady
+                  ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 0.9) 100%)'
+                  : 'linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%)',
+                color: '#fff',
+                padding: '6px 14px',
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: 500,
+                zIndex: 50,
+                pointerEvents: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              {isReady ? (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                  Edit Mode - Click to select
+                </>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      width: 10,
+                      height: 10,
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderTopColor: '#fff',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                    }}
+                  />
+                  Connecting...
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Hover overlay */}
+          {editMode && hoverRect && !selectedRect && (
+            <div
+              style={{
+                position: 'absolute',
+                top: hoverRect.top * zoom,
+                left: hoverRect.left * zoom,
+                width: hoverRect.width * zoom,
+                height: hoverRect.height * zoom,
+                border: '2px solid #93c5fd',
+                background: 'rgba(147, 197, 253, 0.1)',
+                borderRadius: 2,
+                pointerEvents: 'none',
+                zIndex: 1000,
+              }}
+            />
+          )}
+
+          {/* Selection overlay */}
+          {editMode && selectedRect && (
+            <div
+              style={{
+                position: 'absolute',
+                top: selectedRect.top * zoom,
+                left: selectedRect.left * zoom,
+                width: selectedRect.width * zoom,
+                height: selectedRect.height * zoom,
+                border: '2px solid #3b82f6',
+                background: 'rgba(59, 130, 246, 0.1)',
+                borderRadius: 2,
+                pointerEvents: 'none',
+                zIndex: 1001,
+              }}
+            />
+          )}
+        </>
+      );
+    }
+
+    // Full mode with own iframe
     if (!previewUrl) {
       return (
         <div
@@ -257,7 +360,7 @@ export const PreviewManager = forwardRef<PreviewManagerRef, PreviewManagerProps>
       >
         {/* Preview iframe */}
         <iframe
-          ref={iframeRef}
+          ref={internalIframeRef}
           src={previewUrl}
           style={{
             width: '100%',
