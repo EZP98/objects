@@ -832,6 +832,22 @@ const sampleAboutElements: DesignElement[] = [
 ];
 
 const DesignEditor: React.FC = () => {
+  // DEBUG: Global message listener to catch ALL postMessage events
+  useEffect(() => {
+    const globalMessageHandler = (event: MessageEvent) => {
+      if (event.data && typeof event.data === 'object') {
+        console.log('%c[GLOBAL] postMessage received:', 'color: #f59e0b; font-weight: bold;', {
+          type: event.data.type,
+          origin: event.origin,
+          data: event.data,
+        });
+      }
+    };
+    window.addEventListener('message', globalMessageHandler);
+    console.log('%c[GLOBAL] Message listener attached', 'color: #10b981; font-weight: bold;');
+    return () => window.removeEventListener('message', globalMessageHandler);
+  }, []);
+
   // Get project ID from URL
   const { projectId } = useParams<{ projectId: string }>();
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
