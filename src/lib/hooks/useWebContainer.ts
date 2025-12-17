@@ -41,7 +41,7 @@ function injectBridgeIntoFiles(files: Record<string, string>): Record<string, st
   // Inject bridge as inline script (external files get 403 from WebContainer CDN)
   // The script is wrapped in an IIFE so it's self-contained
   const bridgeScript = `<script data-visual-bridge="true">${VISUAL_EDIT_BRIDGE_SCRIPT}</script>`;
-  console.log('[WebContainer] Will inject bridge as inline script');
+  console.log('[WebContainer] Will inject bridge as inline script - v2');
 
   // Log all file paths for debugging
   const allPaths = Object.keys(files);
