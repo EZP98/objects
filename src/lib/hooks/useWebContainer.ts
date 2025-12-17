@@ -5,7 +5,7 @@ import {
   writeFiles,
   installDependencies,
   startDevServer,
-  createViteReactProject,
+  createEditableViteProject,
 } from '../webcontainer';
 
 export type WebContainerStatus =
@@ -93,7 +93,7 @@ export function useWebContainer(): UseWebContainerReturn {
       }
 
       const container = containerRef.current;
-      const projectFiles = files || createViteReactProject();
+      const projectFiles = files || createEditableViteProject();
 
       console.log('[WebContainer] Writing', Object.keys(projectFiles).length, 'files');
 
