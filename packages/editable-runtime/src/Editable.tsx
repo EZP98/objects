@@ -208,7 +208,7 @@ export function withEditable<P extends Record<string, unknown>>(
       <Editable
         id={__editableId}
         component={Component}
-        props={props as P}
+        props={props as unknown as P}
         displayName={displayName}
       />
     );
