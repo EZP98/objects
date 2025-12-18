@@ -7,8 +7,12 @@ import FileExplorer, { FileNode } from './components/FileExplorer';
 import AIChatPanel, { AIChatPanelRef } from './components/AIChatPanel';
 import WebContainerPreview, { WebContainerPreviewRef } from './components/WebContainerPreview';
 import VisualPropsPanel, { SelectedElement } from './components/VisualPropsPanel';
-import { PreviewManager, PropsPanel } from './components/EditablePreview';
+import { PreviewManager } from './components/EditablePreview';
 import type { PreviewManagerRef, SelectedElement as EditableSelectedElement } from './components/EditablePreview/PreviewManager';
+import { StylePanel, ElementToolbar, type ElementStyles, type SelectedElementInfo } from './components/StylePanel';
+import { RightSidebar } from './components/RightSidebar';
+import { formatStyleChangesPrompt } from './lib/prompts/system-prompt';
+import { DesignToCodeEngine, createDesignToCodeEngine } from './lib/design-to-code';
 import { ErrorAlertsContainer, AlertError } from './components/ActionableAlert';
 import { DesignElement as CodeElement } from './utils/codeGenerator';
 import { discoverPages, DiscoveredPage } from './lib/pageDiscovery';
@@ -965,6 +969,8 @@ const DesignEditor: React.FC = () => {
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([]);
   const [currentPreviewPath, setCurrentPreviewPath] = useState<string>('/');
   const [visualEditMode, setVisualEditMode] = useState(false);
+  const [isApplyingStyles, setIsApplyingStyles] = useState(false);
+  const designEngineRef = useRef<DesignToCodeEngine | null>(null);
   const [visualSelectedElement, setVisualSelectedElement] = useState<SelectedElement | null>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const webContainerPreviewRef = useRef<WebContainerPreviewRef>(null);
@@ -1008,6 +1014,29 @@ const DesignEditor: React.FC = () => {
     // Small delay to let React render the iframe
     setTimeout(syncIframeRef, 50);
   }, [webcontainerReady, getPreviewIframe]);
+
+  // Initialize DesignToCodeEngine
+  useEffect(() => {
+    if (!designEngineRef.current && chatPanelRef.current) {
+      designEngineRef.current = createDesignToCodeEngine(
+        // Send to AI chat
+        async (prompt) => {
+          setIsApplyingStyles(true);
+          try {
+            await chatPanelRef.current?.sendMessage(prompt);
+          } finally {
+            setIsApplyingStyles(false);
+          }
+        },
+        // Instant preview
+        (elementId, styles) => {
+          if (previewManagerRef.current) {
+            previewManagerRef.current.updateStyle(elementId, styles as React.CSSProperties);
+          }
+        }
+      );
+    }
+  }, []);
 
   // Toggle edit mode on PreviewManager when visualEditMode changes
   useEffect(() => {
@@ -1346,14 +1375,15 @@ const DesignEditor: React.FC = () => {
   // EFFECTS
   // ==========================================
 
-  // Clear GitHub data when creating a new project
+  // Auto-start WebContainer for new projects
   useEffect(() => {
     if (projectId === 'new') {
       localStorage.removeItem('current-github-repo');
       setGithubRepo(null);
       setProjectFiles([]);
       setProjectUrl('');
-      setUseWebContainer(false);
+      // Auto-start WebContainer with editable template for new projects
+      setUseWebContainer(true);
     }
   }, [projectId]);
 
@@ -1652,6 +1682,20 @@ const DesignEditor: React.FC = () => {
       if (e.key === 'e' && !e.metaKey && !e.ctrlKey && webcontainerReady) {
         setVisualEditMode(prev => !prev);
         setVisualSelectedElement(null);
+      }
+      // Zoom controls: Cmd/Ctrl + 0 = reset, Cmd/Ctrl + +/= = zoom in, Cmd/Ctrl + - = zoom out
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === '0') {
+          e.preventDefault();
+          setZoom(1);
+          setPan({ x: 0, y: 0 });
+        } else if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          setZoom(z => Math.min(4, z + 0.25));
+        } else if (e.key === '-') {
+          e.preventDefault();
+          setZoom(z => Math.max(0.1, z - 0.25));
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -2406,12 +2450,30 @@ const DesignEditor: React.FC = () => {
             Code
           </button>
           )}
+          {/* Run Button - Start WebContainer with editable project */}
+          <button
+            onClick={() => {
+              if (!useWebContainer) {
+                setUseWebContainer(true);
+                // WebContainer will auto-start with createEditableViteProject() as default
+              }
+            }}
+            className={`de-btn ${useWebContainer ? 'de-btn-primary' : 'de-btn-ghost'}`}
+            title="Run editable preview in WebContainer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            {useWebContainer ? 'Running' : 'Run'}
+          </button>
           <button
             onClick={() => setShowPreview(true)}
             className="de-btn de-btn-ghost"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="5 3 19 12 5 21 5 3" />
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
             Preview
           </button>
@@ -2745,18 +2807,14 @@ const DesignEditor: React.FC = () => {
               onFilesUpdate={(updatedFiles) => {
                 // Apply file updates from AI artifacts
                 setFileContents(prev => ({ ...prev, ...updatedFiles }));
-                // Update WebContainer files for live preview
-                if (githubRepo) {
-                  setWebcontainerFiles(prev => ({ ...prev, ...updatedFiles }));
-                }
+                // Update WebContainer files for live preview (always, not just for GitHub projects)
+                setWebcontainerFiles(prev => ({ ...prev, ...updatedFiles }));
                 console.log('[DesignEditor] Files updated from AI:', Object.keys(updatedFiles));
               }}
               onRestoreSnapshot={(files) => {
                 setFileContents(files);
-                // Optionally refresh the preview
-                if (githubRepo) {
-                  setWebcontainerFiles(files);
-                }
+                // Refresh the preview (always, not just for GitHub projects)
+                setWebcontainerFiles(files);
               }}
               onApplyCode={(code, filePath) => {
                 if (filePath) {
@@ -3029,9 +3087,21 @@ const DesignEditor: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'flex-start',
                   padding: '20px',
-                  overflow: 'auto',
+                  overflow: 'hidden',
+                  position: 'relative',
                 }}
               >
+                {/* Pan/Zoom Transform Container */}
+                <div
+                  style={{
+                    transform: `translate(${pan.x}px, ${pan.y}px)`,
+                    transition: 'none',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
                 {/* Device Frame Indicator with Dropdown */}
                 {(useWebContainer || projectUrl) && (
                   <div style={{
@@ -3098,6 +3168,18 @@ const DesignEditor: React.FC = () => {
                           }} />
                         )}
                       </button>
+                    )}
+
+                    {/* Element Toolbar - only in edit mode */}
+                    {visualEditMode && (
+                      <ElementToolbar
+                        onAddElement={(element) => {
+                          // TODO: Add element to the preview
+                          console.log('[DesignEditor] Add element:', element);
+                          // For now, just log - will need to implement adding elements to WebContainer
+                        }}
+                        disabled={!webcontainerReady}
+                      />
                     )}
 
                     {/* Device Selector */}
@@ -3598,6 +3680,7 @@ const DesignEditor: React.FC = () => {
               )}
             </div>
           )}
+              </div>
 
           {/* Bottom Toolbar */}
           <div className="de-bottom-toolbar">
@@ -3697,11 +3780,18 @@ const DesignEditor: React.FC = () => {
             <div className="de-toolbar-divider" />
 
             <div className="de-zoom-controls">
-              <button className="de-zoom-btn" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}>
+              <button className="de-zoom-btn" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title="Zoom out (⌘-)">
                 −
               </button>
-              <span className="de-zoom-value">{Math.round(zoom * 100)}%</span>
-              <button className="de-zoom-btn" onClick={() => setZoom(z => Math.min(4, z + 0.25))}>
+              <button
+                className="de-zoom-value"
+                onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                title="Reset zoom (⌘0)"
+                style={{ cursor: 'pointer', background: 'none', border: 'none', color: 'inherit', font: 'inherit' }}
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button className="de-zoom-btn" onClick={() => setZoom(z => Math.min(4, z + 0.25))} title="Zoom in (⌘+)">
                 +
               </button>
                 </div>
@@ -3741,17 +3831,45 @@ const DesignEditor: React.FC = () => {
                   </button>
                 </div>
 
-          {/* Visual Edit Mode - New Editable Props Panel */}
+          {/* Visual Edit Mode - RightSidebar with tabs */}
           {visualEditMode && editableSelectedElement ? (
-            <PropsPanel
-              selectedElement={editableSelectedElement}
-              onChange={(newProps) => {
-                // Send props update to iframe via PreviewManager
-                if (previewManagerRef.current && editableSelectedElement) {
-                  previewManagerRef.current.updateProps(editableSelectedElement.id, newProps);
-                  console.log('[DesignEditor] Props updated:', editableSelectedElement.id, newProps);
+            <RightSidebar
+              element={editableSelectedElement ? {
+                id: editableSelectedElement.id,
+                tagName: editableSelectedElement.tagName || 'div',
+                className: editableSelectedElement.className || '',
+                styles: editableSelectedElement.styles || {},
+                computedStyles: editableSelectedElement.computedStyles || {},
+                textContent: editableSelectedElement.textContent,
+              } : null}
+              onStyleChange={(styles) => {
+                if (designEngineRef.current && editableSelectedElement) {
+                  designEngineRef.current.queueChange({
+                    type: 'style',
+                    elementId: editableSelectedElement.id,
+                    file: 'src/App.tsx',
+                    component: editableSelectedElement.componentName,
+                    change: styles,
+                  });
                 }
               }}
+              onTextChange={(text) => {
+                if (designEngineRef.current && editableSelectedElement) {
+                  designEngineRef.current.queueChange({
+                    type: 'content',
+                    elementId: editableSelectedElement.id,
+                    file: 'src/App.tsx',
+                    component: editableSelectedElement.componentName,
+                    change: { text },
+                  });
+                }
+              }}
+              onApplyToCode={async () => {
+                if (designEngineRef.current) {
+                  await designEngineRef.current.flush();
+                }
+              }}
+              isApplying={isApplyingStyles}
             />
           ) : visualEditMode && visualSelectedElement ? (
             // Fallback to old VisualPropsPanel for non-editable projects

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } f
 import { useChatHistory } from '../lib/persistence/useChatHistory';
 import { ChatMessage, FileSnapshot } from '../lib/persistence/db';
 import { parseArtifacts, formatFilesForContext, ParsedArtifact } from '../lib/artifactParser';
+import { getSystemPrompt } from '../lib/prompts/system-prompt';
 
 type AIModel = 'claude' | 'gpt4' | 'image' | 'video' | 'audio';
 
@@ -72,6 +73,27 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
   const [showModelSelector, setShowModelSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ESC to stop AI generation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isStreaming) {
+        e.preventDefault();
+        stopGeneration();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isStreaming]);
+
+  const stopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -128,6 +150,14 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
         ? `## Current Project Files\n\n${projectContext}`
         : '';
 
+      // Build system prompt with project context
+      const systemPrompt = getSystemPrompt({
+        projectFiles: projectContext,
+      });
+
+      // Create abort controller for this request
+      abortControllerRef.current = new AbortController();
+
       const response = await fetch('https://design-editor-api.eziopappalardo98.workers.dev/api/ai/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,9 +166,11 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
           currentFile,
           currentCode,
           projectName,
+          systemPrompt, // Full OBJECTS system prompt
           projectContext: systemContext, // Full project context
           history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) throw new Error('Stream request failed');
@@ -215,13 +247,19 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
       }
 
     } catch (error) {
-      console.error('AI Chat error:', error);
-      const errorMessage = error instanceof Error
-        ? `Errore: ${error.message}`
-        : 'Errore di connessione. Riprova.';
-      updateMessage(assistantMessage.id, errorMessage);
+      // Don't show error if user aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        updateMessage(assistantMessage.id, (prev) => prev + '\n\n*[Generazione interrotta]*');
+      } else {
+        console.error('AI Chat error:', error);
+        const errorMessage = error instanceof Error
+          ? `Errore: ${error.message}`
+          : 'Errore di connessione. Riprova.';
+        updateMessage(assistantMessage.id, errorMessage);
+      }
     }
 
+    abortControllerRef.current = null;
     setIsStreaming(false);
   };
 
@@ -551,30 +589,54 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
               )}
             </button>
 
-            {/* Send Button */}
-            <button
-              onClick={() => sendMessageInternal()}
-              disabled={!input.trim() || isStreaming}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                border: 'none',
-                background: input.trim() && !isStreaming
-                  ? AI_MODELS.find(m => m.id === selectedModel)?.color || '#8b5cf6'
-                  : '#27272a',
-                color: input.trim() && !isStreaming ? '#fff' : '#52525b',
-                cursor: input.trim() && !isStreaming ? 'pointer' : 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.15s',
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 19V5M5 12l7-7 7 7" />
-              </svg>
-            </button>
+            {/* Send / Stop Button */}
+            {isStreaming ? (
+              <button
+                onClick={stopGeneration}
+                title="Stop (ESC)"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: '#ef4444',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                  <rect x="1" y="1" width="8" height="8" rx="1" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                onClick={() => sendMessageInternal()}
+                disabled={!input.trim()}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: input.trim()
+                    ? AI_MODELS.find(m => m.id === selectedModel)?.color || '#8b5cf6'
+                    : '#27272a',
+                  color: input.trim() ? '#fff' : '#52525b',
+                  cursor: input.trim() ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
