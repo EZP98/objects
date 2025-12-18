@@ -2603,11 +2603,11 @@ const DesignEditor: React.FC = () => {
                   </svg>
                 </button>
                 <span style={{ fontSize: 11, fontWeight: 600, color: '#a1a1a1', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  {githubRepo ? 'Pages' : 'Frames'}
+                  {(githubRepo || useWebContainer) ? 'Pages' : 'Frames'}
                 </span>
               </div>
               <span style={{ fontSize: 10, color: '#5a5a5a', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>
-                {githubRepo ? discoveredPages.length : pages.length}
+                {(githubRepo || useWebContainer) ? discoveredPages.length : pages.length}
               </span>
             </div>
             <div style={{
@@ -2619,8 +2619,8 @@ const DesignEditor: React.FC = () => {
               gap: 12,
               alignContent: 'start',
             }}>
-              {githubRepo ? (
-                // GitHub project - show discovered routes as thumbnails
+              {(githubRepo || useWebContainer) ? (
+                // GitHub/WebContainer project - show discovered routes as thumbnails
                 discoveredPages.length === 0 ? (
                   <div style={{
                     gridColumn: '1 / -1',

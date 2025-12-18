@@ -44,12 +44,17 @@ const WebContainerPreview = forwardRef<WebContainerPreviewRef, WebContainerPrevi
     getIframe: () => iframeRef.current,
   }));
 
-  // Auto-start if enabled and files are ready
+  // Auto-start if enabled (uses default template if no files provided)
   useEffect(() => {
-    if (autoStart && !hasStarted.current && status === 'idle' && files && Object.keys(files).length > 0) {
+    if (autoStart && !hasStarted.current && status === 'idle') {
       hasStarted.current = true;
-      previousFilesRef.current = { ...files };
-      runProject(files);
+      if (files && Object.keys(files).length > 0) {
+        previousFilesRef.current = { ...files };
+        runProject(files);
+      } else {
+        // Start with default editable template
+        runProject();
+      }
     }
   }, [autoStart, status, files, runProject]);
 
@@ -128,8 +133,9 @@ const WebContainerPreview = forwardRef<WebContainerPreviewRef, WebContainerPrevi
   }, [onPathChange]);
 
   const renderStatus = () => {
-    // Show loading files state first
-    if (isLoadingFiles) {
+    // Show loading files state only if idle and no files (waiting for GitHub download)
+    // Skip this if we're already booting (meaning we're using default template)
+    if (isLoadingFiles && status === 'idle' && !hasStarted.current) {
       return (
         <StatusDisplay
           icon="package"

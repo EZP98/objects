@@ -27,6 +27,13 @@ export interface SelectedElement {
   componentName: string;
   props: Record<string, unknown>;
   rect: ElementRect | null;
+  // Style information
+  styles?: Record<string, string>;
+  computedStyles?: Record<string, string>;
+  // Element information
+  tagName?: string;
+  className?: string;
+  textContent?: string;
 }
 
 export interface PreviewManagerRef {
@@ -170,6 +177,11 @@ export const PreviewManager = forwardRef<PreviewManagerRef, PreviewManagerProps>
               componentName: data.componentName,
               props: data.props,
               rect: data.rect,
+              styles: data.styles,
+              computedStyles: data.computedStyles,
+              tagName: data.tagName,
+              className: data.className,
+              textContent: data.textContent,
             });
             break;
 

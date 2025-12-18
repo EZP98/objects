@@ -1,1 +1,4 @@
-export { LayersPanel, LayersPanel as default, type LayerNode } from './LayersPanel';
+import { LayersPanel, type LayerNode } from './LayersPanel';
+
+export { LayersPanel, type LayerNode };
+export default LayersPanel;

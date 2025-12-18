@@ -297,13 +297,46 @@ const ProjectsPage: React.FC = () => {
               color: 'rgba(255,255,255,0.5)',
               fontSize: 16,
               maxWidth: 500,
-              margin: '0 auto',
+              margin: '0 auto 24px',
             }}>
               {githubUser
-                ? 'Seleziona un repository per aprirlo nell\'editor'
-                : 'Connetti il tuo account GitHub per importare i tuoi progetti'
+                ? 'Seleziona un repository o crea un nuovo progetto'
+                : 'Crea un nuovo progetto o connetti GitHub'
               }
             </p>
+            {/* New Project Button */}
+            <button
+              onClick={() => navigate('/editor/new')}
+              style={{
+                padding: '14px 28px',
+                fontSize: 15,
+                fontWeight: 600,
+                color: '#fff',
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                border: 'none',
+                borderRadius: 12,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 24px rgba(139, 92, 246, 0.4)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 20px rgba(139, 92, 246, 0.3)';
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Nuovo Progetto
+            </button>
           </div>
 
           {/* Local Projects */}

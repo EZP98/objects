@@ -234,14 +234,60 @@ Integrations:
 - [ ] Commit changes back to repo
 - [ ] Branch management
 
-### Fase 5: Animation System (Next)
+### Fase 4.5: Visual Editing System ✅ (NEW)
+- [x] Editable Runtime (EditableProvider, Editable wrapper)
+- [x] PreviewManager component (postMessage bridge)
+- [x] PropsPanel component (visual property editor)
+- [x] Edit Mode toggle
+- [x] Element selection via click
+- [x] Live props update via postMessage
+- [x] `createEditableViteProject()` - inline runtime template
+- [x] Protocollo messaggi: `objects:enable-edit-mode`, `objects:selected`, `objects:hover`, `objects:update-props`
+
+**Architettura Visual Editing:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      DesignEditor                            │
+│  ┌──────────────────┐    ┌─────────────────────────────┐    │
+│  │  PreviewManager  │◄──►│  WebContainer iframe        │    │
+│  │  (overlay mode)  │    │  ┌─────────────────────────┐│    │
+│  │                  │    │  │  editable-runtime.js    ││    │
+│  │ - sends enable   │    │  │  ├─ EditableProvider    ││    │
+│  │ - receives       │    │  │  └─ Editable wrappers   ││    │
+│  │   selected/hover │    │  └─────────────────────────┘│    │
+│  └──────────────────┘    └─────────────────────────────┘    │
+│            │                                                  │
+│            ▼                                                  │
+│  ┌──────────────────┐                                        │
+│  │    PropsPanel    │ Shows when element selected            │
+│  │  - title         │ User edits -> sends update-props       │
+│  │  - subtitle      │ Preview re-renders live                │
+│  │  - buttonText    │                                        │
+│  └──────────────────┘                                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**File Chiave:**
+- `src/lib/webcontainer.ts` -> `createEditableViteProject()`
+- `src/components/EditablePreview/PreviewManager.tsx`
+- `src/components/EditablePreview/PropsPanel.tsx`
+- `src/DesignEditor.tsx` -> integrazione completa
+
+### Fase 5: Point-and-Prompt AI (Next)
+- [ ] AI modifica codice basato su selezione elemento
+- [ ] Streaming AI response
+- [ ] Parser per `<objects-file>` tags
+- [ ] Persistenza modifiche nel codice sorgente
+- [ ] Context-aware prompts (elemento selezionato)
+
+### Fase 7: Animation System
 - [ ] Motion library integration
 - [ ] Animation panel UI
 - [ ] Timeline editor
 - [ ] Preset library (fadeIn, slideUp, etc.)
 - [ ] Scroll triggers con useInView
 
-### Fase 6: Template Library
+### Fase 8: Template Library
 - [ ] Hero sections (5+ variants)
 - [ ] Feature sections
 - [ ] Card layouts
@@ -249,7 +295,7 @@ Integrations:
 - [ ] Footer templates
 - [ ] Full page templates
 
-### Fase 7: Polish & Launch
+### Fase 9: Polish & Launch
 - [ ] Onboarding flow
 - [ ] Keyboard shortcuts
 - [ ] Undo/Redo system
@@ -257,7 +303,7 @@ Integrations:
 - [ ] Deploy to Vercel/Netlify
 - [ ] Documentation
 
-### Fase 8: Advanced Features (Future)
+### Fase 10: Advanced Features (Future)
 - [ ] Real-time collaboration
 - [ ] Version history
 - [ ] Custom components library

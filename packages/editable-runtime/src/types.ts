@@ -50,6 +50,13 @@ export type IframeToParentMessage =
       componentName: string;
       props: Record<string, unknown>;
       rect: ElementRect | null;
+      // Style information
+      styles?: Record<string, string>;
+      computedStyles?: Record<string, string>;
+      // Element information
+      tagName?: string;
+      className?: string;
+      textContent?: string;
     }
   | { type: 'objects:deselected' }
   | {

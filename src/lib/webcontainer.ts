@@ -330,6 +330,12 @@ export function EditableProvider({ children, defaultEditMode = false }) {
             }, '*');
           }
           break;
+        case 'objects:update-style':
+          const styleEl = document.querySelector(\`[data-objects-id="\${data.id}"]\`);
+          if (styleEl) {
+            Object.assign(styleEl.style, data.style);
+          }
+          break;
         case 'objects:ping':
           window.parent.postMessage({ type: 'objects:pong' }, '*');
           break;
@@ -346,12 +352,48 @@ export function EditableProvider({ children, defaultEditMode = false }) {
 
   const selectElement = useCallback((id, info) => {
     setSelectedId(id);
+    // Get element styles
+    const element = document.querySelector(\`[data-objects-id="\${id}"]\`);
+    let styles = {};
+    let computedStyles = {};
+    let tagName = 'div';
+    let className = '';
+    let textContent = undefined;
+
+    if (element) {
+      tagName = element.tagName;
+      className = element.className;
+      // Get text content if single text node
+      if (element.childNodes.length === 1 && element.firstChild?.nodeType === 3) {
+        textContent = element.textContent;
+      }
+      // Get inline styles
+      for (let i = 0; i < element.style.length; i++) {
+        const prop = element.style[i];
+        styles[prop] = element.style.getPropertyValue(prop);
+      }
+      // Get computed styles
+      const computed = window.getComputedStyle(element);
+      const props = ['display', 'flexDirection', 'justifyContent', 'alignItems', 'gap',
+        'padding', 'width', 'height', 'backgroundColor', 'color', 'opacity',
+        'borderWidth', 'borderColor', 'borderRadius', 'fontFamily', 'fontSize',
+        'fontWeight', 'lineHeight', 'textAlign', 'boxShadow'];
+      props.forEach(p => {
+        computedStyles[p] = computed.getPropertyValue(p.replace(/([A-Z])/g, '-$1').toLowerCase());
+      });
+    }
+
     window.parent.postMessage({
       type: 'objects:selected',
       id,
       componentName: info.componentName,
       props: info.props,
       rect: info.rect,
+      styles,
+      computedStyles,
+      tagName,
+      className,
+      textContent,
     }, '*');
   }, []);
 
@@ -443,6 +485,7 @@ export function Editable({ id, component: Component, props, displayName, childre
 
   return React.createElement('div', {
     ref: wrapperRef,
+    'data-objects-id': id,
     onClick: handleClick,
     onMouseEnter: handleMouseEnter,
     onMouseLeave: handleMouseLeave,

@@ -66,6 +66,62 @@ function getElementRect(id: string): ElementRect | null {
 }
 
 // ============================================
+// HELPER: Get element styles
+// ============================================
+
+function getElementStyles(id: string) {
+  const el = document.querySelector(`[data-objects-id="${id}"]`) as HTMLElement;
+  if (!el) return { inline: {}, computed: {} };
+
+  // Get inline styles
+  const inline: Record<string, string> = {};
+  for (let i = 0; i < el.style.length; i++) {
+    const prop = el.style[i];
+    inline[prop] = el.style.getPropertyValue(prop);
+  }
+
+  // Get computed styles (only relevant properties)
+  const computed = window.getComputedStyle(el);
+  const relevantProps = [
+    'display', 'flexDirection', 'justifyContent', 'alignItems', 'gap',
+    'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+    'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+    'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight',
+    'position', 'top', 'right', 'bottom', 'left',
+    'backgroundColor', 'color', 'opacity',
+    'borderWidth', 'borderColor', 'borderRadius', 'borderStyle',
+    'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign', 'letterSpacing',
+    'boxShadow', 'overflow',
+  ];
+
+  const computedStyles: Record<string, string> = {};
+  for (const prop of relevantProps) {
+    computedStyles[prop] = computed.getPropertyValue(
+      prop.replace(/([A-Z])/g, '-$1').toLowerCase()
+    );
+  }
+
+  return { inline, computed: computedStyles };
+}
+
+// ============================================
+// HELPER: Get element info for selection
+// ============================================
+
+function getElementInfo(id: string) {
+  const el = document.querySelector(`[data-objects-id="${id}"]`) as HTMLElement;
+  if (!el) return null;
+
+  return {
+    tagName: el.tagName,
+    className: el.className,
+    textContent: el.childNodes.length === 1 && el.firstChild?.nodeType === Node.TEXT_NODE
+      ? el.textContent
+      : undefined,
+  };
+}
+
+// ============================================
 // PROVIDER COMPONENT
 // ============================================
 
@@ -139,12 +195,19 @@ export function EditableProvider({
           if (data.id) {
             const info = elementsRef.current.get(data.id);
             if (info) {
+              const styles = getElementStyles(data.id);
+              const elInfo = getElementInfo(data.id);
               sendToParent({
                 type: 'objects:selected',
                 id: data.id,
                 componentName: info.componentName,
                 props: propsRef.current[data.id] || info.props,
                 rect: getElementRect(data.id),
+                styles: styles.inline,
+                computedStyles: styles.computed,
+                tagName: elInfo?.tagName,
+                className: elInfo?.className,
+                textContent: elInfo?.textContent,
               });
             }
           }
@@ -208,12 +271,19 @@ export function EditableProvider({
 
     const info = elementsRef.current.get(id);
     if (info) {
+      const styles = getElementStyles(id);
+      const elInfo = getElementInfo(id);
       sendToParent({
         type: 'objects:selected',
         id,
         componentName: info.componentName,
         props: propsRef.current[id] || info.props,
         rect: getElementRect(id),
+        styles: styles.inline,
+        computedStyles: styles.computed,
+        tagName: elInfo?.tagName,
+        className: elInfo?.className,
+        textContent: elInfo?.textContent,
       });
     }
   }, []);
