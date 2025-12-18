@@ -1,4 +1,4 @@
-/* Design Editor - Figma UI3 / Framer / Cosmos Inspired */
+/* OBJECTS - Figma UI3 / Framer / Cosmos Inspired */
 
 /* CSS Variables */
 :root {
@@ -518,7 +518,8 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   transition: width var(--transition-slow);
 }
 

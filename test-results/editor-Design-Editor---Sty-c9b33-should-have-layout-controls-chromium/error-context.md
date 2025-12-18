@@ -1,0 +1,108 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "Design Editor" [ref=e6] [cursor=pointer]
+      - generic [ref=e7]: Design Editor
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - button "Preview" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - button "Code" [ref=e15] [cursor=pointer]:
+          - img [ref=e16]
+        - button "Pages Tree" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+      - generic [ref=e22]:
+        - button "Desktop (1440px)" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+        - button "Tablet (810px)" [ref=e26] [cursor=pointer]:
+          - img [ref=e27]
+        - button "Phone (393px)" [ref=e29] [cursor=pointer]:
+          - img [ref=e30]
+    - generic [ref=e32]:
+      - button "URL" [ref=e33] [cursor=pointer]:
+        - img [ref=e34]
+        - text: URL
+      - button "Components" [ref=e37] [cursor=pointer]:
+        - img [ref=e39]
+        - text: Components
+      - button "Timeline" [ref=e40] [cursor=pointer]
+      - button "Code" [ref=e41] [cursor=pointer]:
+        - img [ref=e43]
+        - text: Code
+      - button "Run" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+        - text: Run
+      - button "Preview" [ref=e49] [cursor=pointer]:
+        - img [ref=e50]
+        - text: Preview
+      - button "Export" [ref=e52] [cursor=pointer]
+  - generic [ref=e53]:
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - button "Collapse panel" [ref=e58] [cursor=pointer]:
+              - img [ref=e59]
+            - generic [ref=e61]: Frames
+          - generic [ref=e62]: "3"
+        - generic [ref=e63]:
+          - generic [ref=e64] [cursor=pointer]:
+            - generic [ref=e70]: Home
+            - generic [ref=e71]: 4 elements
+          - generic [ref=e72] [cursor=pointer]:
+            - generic [ref=e75]: About
+            - generic [ref=e76]: 1 elements
+          - generic [ref=e77] [cursor=pointer]:
+            - generic [ref=e79]: Contact
+            - generic [ref=e80]: 0 elements
+      - generic [ref=e81]:
+        - generic [ref=e82] [cursor=pointer]:
+          - generic [ref=e83]:
+            - img [ref=e84]
+            - generic [ref=e86]: Chat
+          - img [ref=e87]
+        - generic [ref=e89]:
+          - generic [ref=e90]: Chat
+          - generic [ref=e92]:
+            - img [ref=e94]
+            - generic [ref=e97]:
+              - generic [ref=e98]: Come posso aiutarti?
+              - generic [ref=e99]: Descrivi le modifiche al design
+          - generic [ref=e101]:
+            - textbox "Scrivi un messaggio..." [ref=e102]
+            - generic [ref=e103]:
+              - button "✨ Claude" [ref=e104]:
+                - generic [ref=e105]: ✨
+                - generic [ref=e106]: Claude
+              - button [disabled] [ref=e107]:
+                - img [ref=e108]
+    - generic [ref=e120]:
+      - generic [ref=e121]:
+        - button "Desktop (1440px)" [ref=e122] [cursor=pointer]:
+          - img [ref=e123]
+        - button "Tablet (810px)" [ref=e125] [cursor=pointer]:
+          - img [ref=e126]
+        - button "Phone (393px)" [ref=e128] [cursor=pointer]:
+          - img [ref=e129]
+      - button "Select (V)" [ref=e132] [cursor=pointer]:
+        - img [ref=e133]
+      - button "Hand (H)" [ref=e135] [cursor=pointer]:
+        - img [ref=e136]
+      - button "Frame (F)" [ref=e140] [cursor=pointer]:
+        - img [ref=e141]
+      - button "Rectangle (R)" [ref=e144] [cursor=pointer]:
+        - img [ref=e145]
+      - button "Ellipse (O)" [ref=e147] [cursor=pointer]:
+        - img [ref=e148]
+      - button "Text (T)" [ref=e150] [cursor=pointer]:
+        - img [ref=e151]
+      - button "Image" [ref=e153] [cursor=pointer]:
+        - img [ref=e154]
+      - generic [ref=e159]:
+        - button "−" [ref=e160] [cursor=pointer]
+        - button "100%" [ref=e161] [cursor=pointer]
+        - button "+" [ref=e162] [cursor=pointer]
+```

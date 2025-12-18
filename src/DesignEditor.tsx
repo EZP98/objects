@@ -1573,12 +1573,14 @@ const DesignEditor: React.FC = () => {
 
   // Discover pages/routes when files are loaded
   useEffect(() => {
-    if (Object.keys(fileContents).length > 0) {
-      const pages = discoverPages(fileContents);
+    // Use webcontainerFiles for new projects, fileContents for GitHub projects
+    const files = Object.keys(fileContents).length > 0 ? fileContents : webcontainerFiles;
+    if (files && Object.keys(files).length > 0) {
+      const pages = discoverPages(files);
       setDiscoveredPages(pages);
       console.log('Discovered pages:', pages);
     }
-  }, [fileContents]);
+  }, [fileContents, webcontainerFiles]);
 
   // Set iframe loading state when URL changes
   useEffect(() => {
@@ -2232,7 +2234,7 @@ const DesignEditor: React.FC = () => {
       <header className="de-header">
         <div className="de-header-left">
           <button onClick={() => window.location.href = '/'} className="de-logo">
-            Design Editor
+            OBJECTS
           </button>
           {/* Project indicator */}
           <div style={{
@@ -2252,7 +2254,7 @@ const DesignEditor: React.FC = () => {
               borderRadius: '50%',
               background: useWebContainer || githubRepo ? '#22c55e' : '#6b7280',
             }} />
-            {githubRepo?.name || (projectId === 'new' ? 'Nuovo Progetto' : 'Design Editor')}
+            {githubRepo?.name || (projectId === 'new' ? 'Nuovo Progetto' : 'OBJECTS')}
           </div>
         </div>
 

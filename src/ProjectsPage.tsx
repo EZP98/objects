@@ -220,7 +220,7 @@ const ProjectsPage: React.FC = () => {
             </svg>
           </div>
           <span style={{ color: '#fff', fontSize: 16, fontWeight: 600 }}>
-            Design Editor
+            OBJECTS
           </span>
         </div>
 

@@ -1,330 +1,137 @@
-# Design Editor - Roadmap & Ideas
+# Design Editor
 
-> Un Visual AI Builder che combina Figma + Bolt + Framer Motion
+> Visual AI Builder = Figma + Bolt + Framer Motion
 
----
+## Cosa Fa
 
-## Vision
-
-Costruire un editor visuale che unisce:
-- **Cursor Browser Visual Editor** → drag-and-drop, point-and-prompt
-- **Bolt/Lovable** → AI code generation
-- **Framer Motion/GSAP** → libreria animazioni
-- **Timeline Panel** → controllo visuale delle animazioni
-
----
-
-## Architettura
+Editor visuale che genera codice React + Tailwind tramite AI. L'utente modifica visualmente, l'AI scrive il codice.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     DESIGN EDITOR                           │
-├─────────────────────────────────────────────────────────────┤
-│  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐  │
-│  │ VISUAL CANVAS │  │  AI CHAT/     │  │  ANIMATION     │  │
-│  │ (Drag&Drop)   │  │  PROMPT       │  │  TIMELINE      │  │
-│  │               │  │               │  │  PANEL         │  │
-│  └───────────────┘  └───────────────┘  └────────────────┘  │
-├─────────────────────────────────────────────────────────────┤
-│                    TEMPLATE LIBRARY                         │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐          │
-│  │ Hero    │ │ Cards   │ │ Scroll  │ │ Parallax│          │
-│  │ Sections│ │ Stack   │ │ Reveal  │ │ Effects │          │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘          │
-├─────────────────────────────────────────────────────────────┤
-│                    ANIMATION ENGINE                         │
-│  Motion (Framer Motion) / GSAP / CSS Animations            │
-├─────────────────────────────────────────────────────────────┤
-│                    CODE OUTPUT                              │
-│  React + TailwindCSS + Motion                              │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────┐         ┌─────────────────┐
+│  VISUAL EDITOR  │ ◄─ AI ─►│     CODICE      │
+│  click, slider  │         │   React + TW    │
+└─────────────────┘         └─────────────────┘
 ```
 
 ---
 
-## Risorse Open Source
+## Stack
 
-### Editor Visuali (tipo Figma)
-
-| Progetto | Link | Note |
-|----------|------|------|
-| **Penpot** | [penpot/penpot](https://github.com/penpot/penpot) | Il migliore, SVG/CSS/HTML nativo, Clojure |
-| **Plasmic** | [plasmicapp/plasmic](https://github.com/plasmicapp/plasmic) | Visual builder per React, TypeScript |
-| **GrapesJS** | [GrapesJS/grapesjs](https://github.com/GrapesJS/grapesjs) | Page builder drag-and-drop |
-| **OpenChakra** | [premieroctet/openchakra](https://github.com/premieroctet/openchakra) | Visual editor per Chakra UI |
-| **Quant-UX** | [KlausSchaefers/quant-ux](https://github.com/KlausSchaefers/quant-ux) | Prototyping + testing |
-
-### AI Code Generation (tipo Bolt)
-
-| Progetto | Link | Note |
-|----------|------|------|
-| **bolt.diy** | [stackblitz-labs/bolt.diy](https://github.com/stackblitz-labs/bolt.diy) | Versione ufficiale open source, WebContainers |
-| **Dyad** | [dyad-sh/dyad](https://github.com/dyad-sh/dyad) | App builder locale, alternativa a v0/Lovable |
-| **Adorable** | [freestyle-sh/Adorable](https://github.com/freestyle-sh/Adorable) | Open Source Lovable |
-| **open-lovable** | [firecrawl/open-lovable](https://github.com/firecrawl/open-lovable) | Clona siti → React |
-| **v0.diy** | [SujalXplores/v0.diy](https://github.com/SujalXplores/v0.diy) | Clone di v0 con streaming |
-
-### Animation Libraries
-
-| Progetto | Link | Note |
-|----------|------|------|
-| **Motion** | [framer/motion](https://github.com/framer/motion) | MIT, React-first, 12M+ downloads |
-| **GSAP** | gsap.com | Timeline potente (licenza restrittiva) |
-| **AutoAnimate** | [formkit/auto-animate](https://github.com/formkit/auto-animate) | Animazioni automatiche |
-| **React Spring** | [pmndrs/react-spring](https://github.com/pmndrs/react-spring) | Physics-based animations |
-
-### Timeline Editor per Animazioni
-
-| Progetto | Link | Note |
-|----------|------|------|
-| **gsap-visual-timeline-editor** | [tengweiherr/gsap-visual-timeline-editor](https://github.com/tengweiherr/gsap-visual-timeline-editor) | Timeline visuale per GSAP |
-| **Aphalina Animator** | [aphalina.com](https://aphalina.com/) | Genera GSAP code |
-| **Theatre.js** | [theatre-js/theatre](https://github.com/theatre-js/theatre) | Animation editor per Three.js/React |
-
-### Low-Code Builders
-
-| Progetto | Link | Note |
-|----------|------|------|
-| **Builder.io** | [BuilderIO/builder](https://github.com/BuilderIO/builder) | Headless CMS + visual |
-| **ToolJet** | [ToolJet/ToolJet](https://github.com/ToolJet/ToolJet) | App builder con AI |
-| **Appsmith** | [appsmithorg/appsmith](https://github.com/appsmithorg/appsmith) | Internal tools |
-| **NocoBase** | [nocobase/nocobase](https://github.com/nocobase/nocobase) | No-code con plugin |
+| Layer | Tecnologia |
+|-------|------------|
+| Frontend | React 19 + TypeScript + Vite |
+| Styling | TailwindCSS |
+| Preview | WebContainers (Node.js nel browser) |
+| AI | Claude API (streaming SSE) |
+| Hosting | Cloudflare Pages + Workers |
+| Auth | GitHub OAuth |
 
 ---
 
-## Animation Panel Design
+## Stato Attuale
+
+### Fatto ✅
+
+| Feature | File |
+|---------|------|
+| Canvas drag & drop | `DesignEditor.tsx` |
+| Layers panel | `components/LayersPanel` |
+| Properties/Style panel | `components/StylePanel` |
+| Pages system | `DesignEditor.tsx` |
+| File explorer | `components/FileExplorer.tsx` |
+| Code panel (Monaco) | `components/CodePanel.tsx` |
+| Responsive breakpoints | `DesignEditor.tsx` |
+| AI Chat streaming | `components/AIChatPanel.tsx` |
+| `<boltArtifact>` parser | `lib/artifactParser.ts` |
+| WebContainers preview | `components/WebContainerPreview.tsx` |
+| GitHub OAuth | `lib/hooks/useGit.ts` |
+| Edit mode + selection | `components/EditablePreview/` |
+| CSS → Tailwind mapping | `lib/prompts/system-prompt.ts` |
+
+### Da Fare ❌
+
+| Feature | Priorità |
+|---------|----------|
+| **StylePanel → AI → Code** | 🔴 |
+| **Source mapping (DOM → riga codice)** | 🔴 |
+| Component registration (tipo Plasmic) | 🟡 |
+| Animation panel | 🟡 |
+| Template library | 🟡 |
+| Undo/Redo | 🟢 |
+| Export ZIP | 🟢 |
+
+---
+
+## Prossimo Step: Visual → AI → Code
+
+### Flusso Target
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  ANIMATION TIMELINE PANEL                                   │
-├─────────────────────────────────────────────────────────────┤
-│  Element: Hero Title                                        │
-│  ├── Trigger: [onScroll ▼] at [50%] viewport               │
-│  ├── Animation: [fadeInUp ▼]                               │
-│  ├── Duration: [0.8s] ════════●══════                      │
-│  ├── Delay: [0.2s]                                         │
-│  └── Easing: [easeOut ▼]                                   │
-├─────────────────────────────────────────────────────────────┤
-│  TIMELINE VIEW                                              │
-│  0s      0.5s      1s       1.5s      2s                   │
-│  ├────────┼────────┼────────┼────────┤                     │
-│  │████████│        │        │        │  Hero Title         │
-│  │        │███████████      │        │  Subtitle           │
-│  │        │        │████████████████ │  CTA Button         │
-│  │        │        │        │████████│  Image              │
-├─────────────────────────────────────────────────────────────┤
-│  SCROLL MARKERS                                             │
-│  [+] Add trigger point                                      │
-│  • 0% - Page load                                          │
-│  • 30% - Hero exits                                        │
-│  • 50% - Features section                                  │
-│  • 80% - Footer reveal                                     │
-└─────────────────────────────────────────────────────────────┘
+1. User clicca elemento nel preview
+2. StylePanel mostra props
+3. User cambia padding 12px → 24px
+4. Click "Apply to Code"
+5. AI riceve: "cambia padding a 24px nel componente Hero"
+6. AI genera file aggiornato in <boltArtifact>
+7. WebContainer scrive file
+8. Hot Reload → preview aggiornata
 ```
 
----
-
-## Animation Presets "AI Aesthetic"
-
-| Effetto | Descrizione | Codice Motion |
-|---------|-------------|---------------|
-| **Fade In Up** | Elemento appare dal basso | `initial={{opacity:0, y:50}} animate={{opacity:1, y:0}}` |
-| **Stagger Children** | Elementi figli appaiono in sequenza | `staggerChildren: 0.1` |
-| **Scroll Reveal** | Appare quando entra nel viewport | `whileInView={{opacity:1}}` |
-| **Parallax** | Movimento diverso basato su scroll | `useScroll() + useTransform()` |
-| **Card Stack** | Cards che si impilano | Custom con `useScroll` |
-| **Text Split** | Lettere che appaiono una alla volta | `splitText()` |
-| **Magnetic Cursor** | Elementi che seguono il mouse | Motion+ components |
-| **Horizontal Scroll** | Sezione che scrolla orizzontalmente | `useScroll({container})` |
-| **Morph** | Transizione shape-to-shape | `layout` prop |
-| **Blur In** | Appare con blur che si dissolve | `filter: blur()` animation |
-
----
-
-## Killer Features Ideas
-
-### 1. Animation Presets from URL
-L'utente incolla un URL (es. stripe.com) e l'AI:
-1. Analizza le animazioni presenti
-2. Le replica nel tuo editor
-3. Le rende customizzabili
-
-### 2. Point and Animate
-- Click su elemento nel canvas
-- Descrivi l'animazione a voce/testo
-- L'AI genera il codice Motion
-
-### 3. Animation Templates Gallery
-- Libreria di effetti pronti all'uso
-- Categorie: Hero, Cards, Scroll, Hover, Loading
-- Preview live + one-click apply
-
-### 4. Responsive Animation
-- Animazioni diverse per breakpoint
-- Mobile-first animation design
-- Reduced motion support automatico
-
-### 5. Performance Analyzer
-- Analizza le animazioni per performance
-- Suggerisce ottimizzazioni
-- GPU vs CPU animation tips
-
-### 6. Export Options
-- React + Motion
-- Vue + Motion
-- Vanilla JS + CSS
-- React Native (Motion)
-
----
-
-## Tech Stack Attuale
+### File da Modificare
 
 ```
-Frontend:
-├── React 18 + TypeScript
-├── Vite
-├── TailwindCSS (in progress)
-├── @webcontainer/api (Node.js nel browser)
-└── Cloudflare Pages
+src/components/StylePanel/StylePanel.tsx  → onApplyToCode()
+src/lib/design-to-code/DesignToCodeEngine.ts → queueChange() → buildPrompt()
+src/DesignEditor.tsx → collegare tutto
+```
 
-Backend:
-├── Cloudflare Workers
-├── Anthropic Claude API (streaming)
-└── KV Storage (auth tokens)
+### Source Mapping
 
-Integrations:
-├── GitHub OAuth
-├── StackBlitz embed (fallback)
-└── WebContainers (primary preview)
+Problema: quando clicchi un div, come sai quale riga di codice modificare?
+
+Soluzione: `data-objects-*` attributes
+
+```tsx
+<div data-objects-id="hero-1" data-objects-file="src/App.tsx" data-objects-line="42">
 ```
 
 ---
 
-## Roadmap
+## Test
 
-### Fase 1: Core Editor ✅
-- [x] Canvas con elementi drag & drop
-- [x] Layers panel con gerarchia
-- [x] Properties panel per styling
-- [x] Pages system multi-pagina
-- [x] File explorer con tree view
-- [x] Code panel Monaco-style
-- [x] Responsive breakpoints (Desktop/Tablet/Phone)
-- [x] Zoom e pan controls
-
-### Fase 2: AI Integration ✅
-- [x] AI Chat panel stile Bolt
-- [x] Streaming responses SSE
-- [x] Code generation con Claude Sonnet
-- [x] System prompt ottimizzato per React + Tailwind
-- [x] Estrazione automatica codice da response
-
-### Fase 3: Preview System ✅
-- [x] WebContainers API integration
-- [x] StackBlitz fallback per GitHub repos
-- [x] Auto-start preview
-- [x] Vite + React + Tailwind template
-- [x] Hot reload del codice generato
-
-### Fase 4: GitHub Integration ✅
-- [x] OAuth flow
-- [x] Repository browser
-- [x] File tree loading
-- [x] File content fetching
-- [ ] Commit changes back to repo
-- [ ] Branch management
-
-### Fase 4.5: Visual Editing System ✅ (NEW)
-- [x] Editable Runtime (EditableProvider, Editable wrapper)
-- [x] PreviewManager component (postMessage bridge)
-- [x] PropsPanel component (visual property editor)
-- [x] Edit Mode toggle
-- [x] Element selection via click
-- [x] Live props update via postMessage
-- [x] `createEditableViteProject()` - inline runtime template
-- [x] Protocollo messaggi: `objects:enable-edit-mode`, `objects:selected`, `objects:hover`, `objects:update-props`
-
-**Architettura Visual Editing:**
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      DesignEditor                            │
-│  ┌──────────────────┐    ┌─────────────────────────────┐    │
-│  │  PreviewManager  │◄──►│  WebContainer iframe        │    │
-│  │  (overlay mode)  │    │  ┌─────────────────────────┐│    │
-│  │                  │    │  │  editable-runtime.js    ││    │
-│  │ - sends enable   │    │  │  ├─ EditableProvider    ││    │
-│  │ - receives       │    │  │  └─ Editable wrappers   ││    │
-│  │   selected/hover │    │  └─────────────────────────┘│    │
-│  └──────────────────┘    └─────────────────────────────┘    │
-│            │                                                  │
-│            ▼                                                  │
-│  ┌──────────────────┐                                        │
-│  │    PropsPanel    │ Shows when element selected            │
-│  │  - title         │ User edits -> sends update-props       │
-│  │  - subtitle      │ Preview re-renders live                │
-│  │  - buttonText    │                                        │
-│  └──────────────────┘                                        │
-└─────────────────────────────────────────────────────────────┘
+```bash
+npm install -D @playwright/test
+npx playwright install chromium
+npx playwright test
 ```
 
-**File Chiave:**
-- `src/lib/webcontainer.ts` -> `createEditableViteProject()`
-- `src/components/EditablePreview/PreviewManager.tsx`
-- `src/components/EditablePreview/PropsPanel.tsx`
-- `src/DesignEditor.tsx` -> integrazione completa
-
-### Fase 5: Point-and-Prompt AI (Next)
-- [ ] AI modifica codice basato su selezione elemento
-- [ ] Streaming AI response
-- [ ] Parser per `<objects-file>` tags
-- [ ] Persistenza modifiche nel codice sorgente
-- [ ] Context-aware prompts (elemento selezionato)
-
-### Fase 7: Animation System
-- [ ] Motion library integration
-- [ ] Animation panel UI
-- [ ] Timeline editor
-- [ ] Preset library (fadeIn, slideUp, etc.)
-- [ ] Scroll triggers con useInView
-
-### Fase 8: Template Library
-- [ ] Hero sections (5+ variants)
-- [ ] Feature sections
-- [ ] Card layouts
-- [ ] Navigation components
-- [ ] Footer templates
-- [ ] Full page templates
-
-### Fase 9: Polish & Launch
-- [ ] Onboarding flow
-- [ ] Keyboard shortcuts
-- [ ] Undo/Redo system
-- [ ] Export to ZIP
-- [ ] Deploy to Vercel/Netlify
-- [ ] Documentation
-
-### Fase 10: Advanced Features (Future)
-- [ ] Real-time collaboration
-- [ ] Version history
-- [ ] Custom components library
-- [ ] Plugin system
-- [ ] Figma import
+Risultati attuali: 15/22 passati
+- ✅ Artifact parser (7/7)
+- ✅ Homepage (3/3)
+- ⚠️ Editor page (timeout WebContainers)
 
 ---
 
-## References
+## Progetti Correlati
 
-- [Framer Motion Docs](https://motion.dev/)
-- [GSAP ScrollTrigger](https://gsap.com/docs/v3/Plugins/ScrollTrigger/)
-- [Theatre.js](https://www.theatrejs.com/)
-- [bolt.diy Source](https://github.com/stackblitz-labs/bolt.diy)
-- [WebContainers API](https://webcontainers.io/)
+### ALF Portfolio (`/Documents/alf/artist-portfolio`)
+
+Backoffice CMS completo con 30+ pagine:
+- CollectionManagement, MediaStorage, OrdersManagement
+- Pattern: List → Detail → Form
+- Auth, i18n, upload media
+
+### Artemis Portfolio (`/Documents/artemis-portfolio`)
+
+Prototipo `/back` con slider CSS:
+- useState → preview live → output CSS/Tailwind
+- Manca: connessione ad AI
 
 ---
 
-## Notes
+## Riferimenti
 
-- WebContainers richiede headers COOP/COEP per funzionare
-- Motion è MIT licensed, GSAP ha licenza restrittiva per SaaS
-- Considerare Theatre.js per timeline editor avanzato
-- Penpot usa Clojure, difficile da integrare direttamente
+- [bolt.diy](https://github.com/stackblitz-labs/bolt.diy) - AI code gen
+- [Plasmic](https://github.com/plasmicapp/plasmic) - Visual builder
+- [WebContainers](https://webcontainers.io/) - Node.js in browser
+- [Framer Motion](https://motion.dev/) - Animazioni
