@@ -5,7 +5,7 @@
  * Supports dragging like Figma/Framer.
  */
 
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CanvasElement } from '../../lib/canvas/types';
 import { useCanvasStore } from '../../lib/canvas/canvasStore';
@@ -39,26 +39,149 @@ export function CanvasElementRenderer({
   parentFlexDirection = 'column',
 }: CanvasElementRendererProps) {
   const elementRef = useRef<HTMLDivElement>(null);
+  const textEditRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [editingContent, setEditingContent] = useState(element.content || '');
   const dragStartPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
   const hasDraggedRef = useRef(false);
+  const lastClickTimeRef = useRef(0);
 
   const moveElement = useCanvasStore((state) => state.moveElement);
   const saveToHistory = useCanvasStore((state) => state.saveToHistory);
+  const updateElementContent = useCanvasStore((state) => state.updateElementContent);
+  const resizeElement = useCanvasStore((state) => state.resizeElement);
 
-  // Handle element click
+  // Check if this is a text element
+  const isTextElement = element.type === 'text' || element.type === 'heading' || element.type === 'paragraph';
+
+  // Sync editing content with element content when not editing
+  useEffect(() => {
+    if (!isEditingText) {
+      setEditingContent(element.content || '');
+    }
+  }, [element.content, isEditingText]);
+
+  // Focus text editor when entering edit mode
+  useEffect(() => {
+    if (isEditingText && textEditRef.current) {
+      // Set the content first
+      textEditRef.current.textContent = editingContent;
+      textEditRef.current.focus();
+      // Place cursor at end
+      const range = document.createRange();
+      const sel = window.getSelection();
+      if (textEditRef.current.childNodes.length > 0) {
+        range.selectNodeContents(textEditRef.current);
+        range.collapse(false);
+      } else {
+        range.setStart(textEditRef.current, 0);
+        range.collapse(true);
+      }
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+  }, [isEditingText]);
+
+  // Exit edit mode when element is deselected
+  useEffect(() => {
+    if (!isSelected && isEditingText) {
+      // Save before exiting
+      if (textEditRef.current) {
+        const newContent = textEditRef.current.textContent || '';
+        updateElementContent(element.id, newContent);
+      }
+      setIsEditingText(false);
+    }
+  }, [isSelected, isEditingText, element.id, updateElementContent]);
+
+  // Handle element click with manual double-click detection
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
       if (element.locked) return;
+
+      // If editing text, don't change selection
+      if (isEditingText) return;
+
+      // Check for double-click (manual detection for better compatibility with framer-motion)
+      const now = Date.now();
+      const timeSinceLastClick = now - lastClickTimeRef.current;
+      lastClickTimeRef.current = now;
+
+      if (timeSinceLastClick < 400 && isTextElement && !hasDraggedRef.current) {
+        // Double-click detected - enter edit mode
+        setIsEditingText(true);
+        return;
+      }
+
       // Only select if we didn't just finish dragging
       if (!hasDraggedRef.current) {
         onSelect(element.id, e.shiftKey);
       }
       hasDraggedRef.current = false;
     },
-    [element.id, element.locked, onSelect]
+    [element.id, element.locked, onSelect, isEditingText, isTextElement]
   );
+
+  // Keep native double-click as backup
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (element.locked) return;
+      if (isTextElement && !isEditingText) {
+        setIsEditingText(true);
+      }
+    },
+    [element.locked, isTextElement, isEditingText]
+  );
+
+  // Handle text input changes - only auto-resize, don't save to store yet
+  const handleTextInput = useCallback(
+    (e: React.FormEvent<HTMLDivElement>) => {
+      // Auto-resize if in "hug" mode
+      const resizeX = (element.styles as any).resizeX || 'fixed';
+      const resizeY = (element.styles as any).resizeY || 'fixed';
+
+      if (textEditRef.current && (resizeX === 'hug' || resizeY === 'hug')) {
+        const rect = textEditRef.current.getBoundingClientRect();
+        const newWidth = resizeX === 'hug' ? Math.max(20, rect.width / zoom + 4) : element.size.width;
+        const newHeight = resizeY === 'hug' ? Math.max(20, rect.height / zoom + 4) : element.size.height;
+        resizeElement(element.id, { width: newWidth, height: newHeight });
+      }
+    },
+    [element.id, element.styles, element.size, resizeElement, zoom]
+  );
+
+  // Handle text edit keyboard events
+  const handleTextKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        // Save content before exiting
+        if (textEditRef.current) {
+          const newContent = textEditRef.current.textContent || '';
+          updateElementContent(element.id, newContent);
+        }
+        setIsEditingText(false);
+        saveToHistory('Edit text');
+      }
+      // Don't propagate other keys to prevent canvas shortcuts
+      e.stopPropagation();
+    },
+    [element.id, updateElementContent, saveToHistory]
+  );
+
+  // Handle blur to exit edit mode and save content
+  const handleTextBlur = useCallback(() => {
+    if (textEditRef.current) {
+      const newContent = textEditRef.current.textContent || '';
+      updateElementContent(element.id, newContent);
+    }
+    setIsEditingText(false);
+    saveToHistory('Edit text');
+  }, [element.id, updateElementContent, saveToHistory]);
 
   // Handle drag start
   const handleDragStart = useCallback(() => {
@@ -119,6 +242,10 @@ export function CanvasElementRenderer({
     // When parent doesn't have auto layout, use absolute positioning
     const useAbsolute = !parentHasAutoLayout;
 
+    // For auto-layout containers, text should fill width by default for proper alignment
+    const isTextType = element.type === 'text' || element.type === 'heading' || element.type === 'paragraph';
+    const autoFillText = isTextType && parentHasAutoLayout;
+
     // Determine outline/border for selection/hover state
     // Show inline outline for:
     // 1. Non-frame elements (they don't get SelectionOverlay anymore)
@@ -146,6 +273,9 @@ export function CanvasElementRenderer({
       width = '100%';
     } else if (resizeX === 'hug') {
       width = 'auto';
+    } else if (autoFillText && resizeX === 'fixed') {
+      // Text in auto-layout should fill width by default for proper text alignment
+      width = '100%';
     }
 
     // Determine height based on resize mode
@@ -153,6 +283,9 @@ export function CanvasElementRenderer({
     if (parentHasAutoLayout && resizeY === 'fill') {
       height = '100%';
     } else if (resizeY === 'hug') {
+      height = 'auto';
+    } else if (autoFillText && resizeY === 'fixed') {
+      // Text height can stay auto for natural text flow
       height = 'auto';
     }
 
@@ -299,7 +432,32 @@ export function CanvasElementRenderer({
       case 'text':
       case 'heading':
       case 'paragraph':
-        // Text content inherits typography from parent container
+        // Text content - editable on double-click (Figma-style)
+        if (isEditingText) {
+          return (
+            <div
+              ref={textEditRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={handleTextInput}
+              onKeyDown={handleTextKeyDown}
+              onBlur={handleTextBlur}
+              style={{
+                outline: 'none',
+                display: 'block',
+                width: '100%',
+                minHeight: '1em',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                cursor: 'text',
+                caretColor: '#8B1E2B',
+                background: 'rgba(139, 30, 43, 0.05)',
+                borderRadius: 2,
+                // Typography styles are on the container div via getStyles()
+              }}
+            />
+          );
+        }
         return (
           <span
             style={{
@@ -489,7 +647,7 @@ export function CanvasElementRenderer({
   };
 
   // Can this element be dragged?
-  const canDrag = !element.locked && !parentHasAutoLayout;
+  const canDrag = !element.locked && !parentHasAutoLayout && !isEditingText;
 
   return (
     <motion.div
@@ -508,6 +666,7 @@ export function CanvasElementRenderer({
       }}
       whileDrag={{ cursor: 'grabbing' }}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseEnter={() => onHover(element.id)}
       onMouseLeave={() => onHover(null)}
     >
@@ -523,8 +682,8 @@ export function CanvasElementRenderer({
                 left: paddingValues.left,
                 right: paddingValues.right,
                 height: paddingValues.top,
-                background: 'rgba(34, 211, 238, 0.15)',
-                borderBottom: '1px dashed rgba(34, 211, 238, 0.4)',
+                background: 'rgba(139, 30, 43, 0.15)',
+                borderBottom: '1px dashed rgba(139, 30, 43, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 1000,
               }}
@@ -536,10 +695,11 @@ export function CanvasElementRenderer({
                 transform: 'translate(-50%, -50%)',
                 fontSize: 9,
                 fontWeight: 600,
-                color: 'rgba(34, 211, 238, 0.9)',
-                background: 'rgba(0, 0, 0, 0.7)',
-                padding: '1px 4px',
-                borderRadius: 2,
+                color: '#fff',
+                background: '#8B1E2B',
+                padding: '2px 6px',
+                borderRadius: 3,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
               }}>
                 {paddingValues.top}
               </span>
@@ -554,8 +714,8 @@ export function CanvasElementRenderer({
                 left: paddingValues.left,
                 right: paddingValues.right,
                 height: paddingValues.bottom,
-                background: 'rgba(34, 211, 238, 0.15)',
-                borderTop: '1px dashed rgba(34, 211, 238, 0.4)',
+                background: 'rgba(139, 30, 43, 0.15)',
+                borderTop: '1px dashed rgba(139, 30, 43, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 1000,
               }}
@@ -567,7 +727,7 @@ export function CanvasElementRenderer({
                 transform: 'translate(-50%, -50%)',
                 fontSize: 9,
                 fontWeight: 600,
-                color: 'rgba(34, 211, 238, 0.9)',
+                color: 'rgba(139, 30, 43, 0.9)',
                 background: 'rgba(0, 0, 0, 0.7)',
                 padding: '1px 4px',
                 borderRadius: 2,
@@ -585,8 +745,8 @@ export function CanvasElementRenderer({
                 top: paddingValues.top,
                 bottom: paddingValues.bottom,
                 width: paddingValues.left,
-                background: 'rgba(34, 211, 238, 0.15)',
-                borderRight: '1px dashed rgba(34, 211, 238, 0.4)',
+                background: 'rgba(139, 30, 43, 0.15)',
+                borderRight: '1px dashed rgba(139, 30, 43, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 1000,
               }}
@@ -598,7 +758,7 @@ export function CanvasElementRenderer({
                 transform: 'translate(-50%, -50%) rotate(-90deg)',
                 fontSize: 9,
                 fontWeight: 600,
-                color: 'rgba(34, 211, 238, 0.9)',
+                color: 'rgba(139, 30, 43, 0.9)',
                 background: 'rgba(0, 0, 0, 0.7)',
                 padding: '1px 4px',
                 borderRadius: 2,
@@ -617,8 +777,8 @@ export function CanvasElementRenderer({
                 top: paddingValues.top,
                 bottom: paddingValues.bottom,
                 width: paddingValues.right,
-                background: 'rgba(34, 211, 238, 0.15)',
-                borderLeft: '1px dashed rgba(34, 211, 238, 0.4)',
+                background: 'rgba(139, 30, 43, 0.15)',
+                borderLeft: '1px dashed rgba(139, 30, 43, 0.4)',
                 pointerEvents: 'none',
                 zIndex: 1000,
               }}
@@ -630,7 +790,7 @@ export function CanvasElementRenderer({
                 transform: 'translate(-50%, -50%) rotate(90deg)',
                 fontSize: 9,
                 fontWeight: 600,
-                color: 'rgba(34, 211, 238, 0.9)',
+                color: 'rgba(139, 30, 43, 0.9)',
                 background: 'rgba(0, 0, 0, 0.7)',
                 padding: '1px 4px',
                 borderRadius: 2,

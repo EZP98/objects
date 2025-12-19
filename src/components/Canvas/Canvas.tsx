@@ -90,6 +90,12 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
   const [panStart, setPanStart] = useState<Position | null>(null);
   const [activeTool, setActiveTool] = useState<'select' | 'hand' | 'frame' | 'text'>('select');
 
+  // Refs for pan/zoom to avoid stale closures in event handlers
+  const panRef = useRef(pan);
+  const zoomRef = useRef(zoom);
+  panRef.current = pan;
+  zoomRef.current = zoom;
+
   // View mode: 'multi' shows all pages, 'single' shows only current page
   const [viewMode, setViewMode] = useState<'multi' | 'single'>('multi');
 
@@ -542,9 +548,10 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         return;
       }
 
+      // Use ref to get current pan value (avoids stale closure)
       onPanChange({
-        x: pan.x + velocityX,
-        y: pan.y + velocityY,
+        x: panRef.current.x + velocityX,
+        y: panRef.current.y + velocityY,
       });
 
       animationFrame = requestAnimationFrame(applyMomentum);
@@ -582,9 +589,11 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
           const centerX = (minX + maxX) / 2;
           const centerY = (minY + maxY) / 2;
 
-          // Convert to screen coordinates
-          const screenCenterX = rect.width / 2 + pan.x + centerX * zoom;
-          const screenCenterY = rect.height / 2 + pan.y + centerY * zoom;
+          // Convert to screen coordinates - use refs for current values
+          const currentPan = panRef.current;
+          const currentZoom = zoomRef.current;
+          const screenCenterX = rect.width / 2 + currentPan.x + centerX * currentZoom;
+          const screenCenterY = rect.height / 2 + currentPan.y + centerY * currentZoom;
 
           return { x: screenCenterX, y: screenCenterY };
         }
@@ -601,6 +610,10 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
       const now = Date.now();
       const timeDelta = now - lastWheelTime;
       lastWheelTime = now;
+
+      // Get current values from refs
+      const currentPan = panRef.current;
+      const currentZoom = zoomRef.current;
 
       const isDeltaPixels = e.deltaMode === 0;
       const hasHorizontalScroll = Math.abs(e.deltaX) > 0;
@@ -622,19 +635,19 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
 
         const sensitivity = isPinchZoom ? 0.008 : 0.003;
         const zoomDelta = Math.exp(-e.deltaY * sensitivity);
-        const newZoom = Math.min(4, Math.max(0.1, zoom * zoomDelta));
+        const newZoom = Math.min(4, Math.max(0.1, currentZoom * zoomDelta));
 
-        if (Math.abs(newZoom - zoom) < 0.001) return;
+        if (Math.abs(newZoom - currentZoom) < 0.001) return;
 
-        const zoomRatio = newZoom / zoom;
+        const zoomRatio = newZoom / currentZoom;
 
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
-        const offsetX = target.x - centerX - pan.x;
-        const offsetY = target.y - centerY - pan.y;
+        const offsetX = target.x - centerX - currentPan.x;
+        const offsetY = target.y - centerY - currentPan.y;
 
-        const newPanX = pan.x - offsetX * (zoomRatio - 1);
-        const newPanY = pan.y - offsetY * (zoomRatio - 1);
+        const newPanX = currentPan.x - offsetX * (zoomRatio - 1);
+        const newPanY = currentPan.y - offsetY * (zoomRatio - 1);
 
         onZoomChange(newZoom);
         onPanChange({ x: newPanX, y: newPanY });
@@ -646,8 +659,8 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         }
 
         const newPan = {
-          x: pan.x - e.deltaX,
-          y: pan.y - e.deltaY,
+          x: currentPan.x - e.deltaX,
+          y: currentPan.y - e.deltaY,
         };
         onPanChange(newPan);
 
@@ -676,19 +689,19 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         const target = getZoomTarget(e, rect);
 
         const zoomDelta = Math.exp(-e.deltaY * 0.002);
-        const newZoom = Math.min(4, Math.max(0.1, zoom * zoomDelta));
+        const newZoom = Math.min(4, Math.max(0.1, currentZoom * zoomDelta));
 
-        if (Math.abs(newZoom - zoom) < 0.001) return;
+        if (Math.abs(newZoom - currentZoom) < 0.001) return;
 
-        const zoomRatio = newZoom / zoom;
+        const zoomRatio = newZoom / currentZoom;
 
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
-        const offsetX = target.x - centerX - pan.x;
-        const offsetY = target.y - centerY - pan.y;
+        const offsetX = target.x - centerX - currentPan.x;
+        const offsetY = target.y - centerY - currentPan.y;
 
-        const newPanX = pan.x - offsetX * (zoomRatio - 1);
-        const newPanY = pan.y - offsetY * (zoomRatio - 1);
+        const newPanX = currentPan.x - offsetX * (zoomRatio - 1);
+        const newPanY = currentPan.y - offsetY * (zoomRatio - 1);
 
         onZoomChange(newZoom);
         onPanChange({ x: newPanX, y: newPanY });
@@ -702,7 +715,7 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [zoom, pan, onZoomChange, onPanChange]);
+  }, [onZoomChange, onPanChange]); // Removed zoom, pan since we use refs
 
   // Handle page drag end - update store position
   const handlePageDragEnd = useCallback((pageId: string, offset: { x: number; y: number }) => {
@@ -988,9 +1001,10 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         style={{
           left: '50%',
           top: '50%',
-          transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px)) scale(${zoom})`,
+          transform: `translate3d(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px), 0) scale(${zoom})`,
           transformOrigin: 'center center',
           willChange: 'transform',
+          backfaceVisibility: 'hidden',
           paddingTop: 50, // Space for drag handles
         }}
       >

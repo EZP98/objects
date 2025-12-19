@@ -153,6 +153,9 @@ interface CanvasActions {
   clearResponsiveStyles: (elementId: string, breakpointId: string) => void;
   getStylesForBreakpoint: (elementId: string, breakpointId: string) => ElementStyles;
 
+  // Figma import
+  importFigmaDesign: (elements: Record<string, CanvasElement>, rootId: string, rootName: string, rootSize: Size) => string;
+
   // Reset
   reset: () => void;
 }
@@ -1833,6 +1836,82 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       ...baseStyles,
       ...responsiveOverrides,
     };
+  },
+
+  // Figma import - creates a new page with all imported elements
+  importFigmaDesign: (importedElements: Record<string, CanvasElement>, importedRootId: string, rootName: string, rootSize: Size): string => {
+    const state = get();
+    const pageId = generateId('page');
+    const rootId = generateId('root');
+
+    // Map old IDs to new IDs
+    const idMap: Record<string, string> = {};
+    idMap[importedRootId] = rootId;
+
+    // Generate new IDs for all elements
+    for (const oldId of Object.keys(importedElements)) {
+      if (oldId !== importedRootId) {
+        idMap[oldId] = generateId('figma');
+      }
+    }
+
+    // Create new elements with remapped IDs
+    const newElements: Record<string, CanvasElement> = {};
+
+    for (const [oldId, element] of Object.entries(importedElements)) {
+      const newId = idMap[oldId];
+      const newParentId = element.parentId ? idMap[element.parentId] : null;
+      const newChildren = element.children.map(childId => idMap[childId]).filter(Boolean);
+
+      newElements[newId] = {
+        ...element,
+        id: newId,
+        parentId: newParentId,
+        children: newChildren,
+      };
+    }
+
+    // Update root element to be a page type
+    const rootElement = newElements[rootId];
+    if (rootElement) {
+      rootElement.type = 'page';
+      rootElement.name = rootName;
+      rootElement.size = rootSize;
+      rootElement.position = { x: 0, y: 0 };
+      rootElement.positionType = 'relative';
+    }
+
+    // Position new page to the right of existing pages
+    const existingPages = Object.values(state.pages);
+    let rightmostX = 0;
+    for (const p of existingPages) {
+      const pageRight = (p.x || 0) + p.width;
+      if (pageRight > rightmostX) {
+        rightmostX = pageRight;
+      }
+    }
+    const newPageX = existingPages.length > 0 ? rightmostX + 100 : 0;
+
+    const page: CanvasPage = {
+      id: pageId,
+      name: rootName,
+      rootElementId: rootId,
+      backgroundColor: rootElement?.styles?.backgroundColor || '#ffffff',
+      width: rootSize.width,
+      height: rootSize.height,
+      x: newPageX,
+      y: 0,
+    };
+
+    set((state) => ({
+      pages: { ...state.pages, [pageId]: page },
+      elements: { ...state.elements, ...newElements },
+      currentPageId: pageId,
+      selectedElementIds: [],
+    }));
+
+    get().saveToHistory('Import from Figma');
+    return pageId;
   },
 
   // Reset

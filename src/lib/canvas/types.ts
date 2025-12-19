@@ -227,6 +227,21 @@ export interface CanvasPage {
   notes?: string;
 }
 
+// Canvas settings for customization
+export interface CanvasSettings {
+  canvasBackground: string;
+  selectionColor: string;
+  showGrid: boolean;
+  gridSize: number;
+}
+
+export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
+  canvasBackground: '#0a0808',
+  selectionColor: '#8B1E2B',
+  showGrid: true,
+  gridSize: 20,
+};
+
 export interface CanvasState {
   projectName: string;
   pages: Record<string, CanvasPage>;
@@ -234,6 +249,9 @@ export interface CanvasState {
   currentPageId: string;
   selectedElementIds: string[];
   hoveredElementId: string | null;
+
+  // Canvas settings
+  canvasSettings: CanvasSettings;
 
   // Clipboard
   clipboard: CanvasElement[] | null;

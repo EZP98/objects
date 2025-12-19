@@ -27,6 +27,7 @@ import { useCanvasStore, setCurrentProjectId, saveProjectToRecents, loadProjectC
 import { generateProjectFiles } from './lib/canvas/codeGenerator';
 import type { ElementType } from './lib/canvas/types';
 import { importFromFigma, saveFigmaToken, getFigmaToken, parseFigmaUrl } from './lib/figma/figmaImport';
+import { importFromFramer, parseFramerUrl } from './lib/framer/framerImport';
 
 // API URL for production/development
 const API_URL = import.meta.env.PROD
@@ -1029,9 +1030,22 @@ const DesignEditor: React.FC = () => {
   const [figmaUrl, setFigmaUrl] = useState('');
   const [figmaToken, setFigmaToken] = useState(() => getFigmaToken() || '');
 
+  // Framer Import Modal State
+  const [showFramerModal, setShowFramerModal] = useState(false);
+  const [framerUrl, setFramerUrl] = useState('');
+  const [framerImporting, setFramerImporting] = useState(false);
+
   // Notes Panel State
   const [showNotesPanel, setShowNotesPanel] = useState(false);
   const [figmaImporting, setFigmaImporting] = useState(false);
+
+  // Toast Notification State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  }, []);
 
   const designEngineRef = useRef<DesignToCodeEngine | null>(null);
   const [visualSelectedElement, setVisualSelectedElement] = useState<SelectedElement | null>(null);
@@ -1132,12 +1146,12 @@ const DesignEditor: React.FC = () => {
 
     const parsed = parseFigmaUrl(figmaUrl);
     if (!parsed) {
-      alert('Invalid Figma URL. Please use a valid Figma file or frame URL.');
+      showToast('Invalid Figma URL. Please use a valid Figma file or frame URL.', 'error');
       return;
     }
 
     if (!figmaToken) {
-      alert('Please enter your Figma Personal Access Token.');
+      showToast('Please enter your Figma Personal Access Token.', 'error');
       return;
     }
 
@@ -1147,19 +1161,72 @@ const DesignEditor: React.FC = () => {
       saveFigmaToken(figmaToken);
 
       // Import from Figma
-      await importFromFigma(figmaUrl, figmaToken);
+      const result = await importFromFigma(figmaUrl, figmaToken);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to import from Figma');
+      }
+
+      // Add imported elements to canvas as a new page
+      const { importFigmaDesign } = useCanvasStore.getState();
+      importFigmaDesign(
+        result.elements,
+        result.rootId,
+        result.rootName || 'Figma Import',
+        result.rootSize || { width: 1440, height: 900 }
+      );
 
       // Close modal and reset
       setShowFigmaModal(false);
       setFigmaUrl('');
-      console.log('Figma import completed successfully');
+      showToast(`Imported ${Object.keys(result.elements).length} elements from Figma`, 'success');
     } catch (error) {
       console.error('Figma import failed:', error);
-      alert(`Figma import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showToast(error instanceof Error ? error.message : 'Failed to import from Figma', 'error');
     } finally {
       setFigmaImporting(false);
     }
-  }, [figmaUrl, figmaToken, figmaImporting]);
+  }, [figmaUrl, figmaToken, figmaImporting, showToast]);
+
+  // Handle Framer Import
+  const handleFramerImport = useCallback(async () => {
+    if (!framerUrl || framerImporting) return;
+
+    const parsed = parseFramerUrl(framerUrl);
+    if (!parsed.isValid) {
+      showToast('Invalid URL. Please enter a valid website URL.', 'error');
+      return;
+    }
+
+    setFramerImporting(true);
+    try {
+      // Import from Framer/Website
+      const result = await importFromFramer(framerUrl);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to import from URL');
+      }
+
+      // Add imported elements to canvas as a new page
+      const { importFigmaDesign } = useCanvasStore.getState();
+      importFigmaDesign(
+        result.elements,
+        result.rootId,
+        result.rootName || 'Web Import',
+        result.rootSize || { width: 1440, height: 900 }
+      );
+
+      // Close modal and reset
+      setShowFramerModal(false);
+      setFramerUrl('');
+      showToast(`Imported ${result.elementCount || Object.keys(result.elements).length} elements`, 'success');
+    } catch (error) {
+      console.error('Framer import failed:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to import from URL', 'error');
+    } finally {
+      setFramerImporting(false);
+    }
+  }, [framerUrl, framerImporting, showToast]);
 
   const [hoveredElement, setHoveredElement] = useState<{
     tagName: string;
@@ -2414,6 +2481,23 @@ const DesignEditor: React.FC = () => {
               <path d="M5 12.5A3.5 3.5 0 0 1 8.5 9H12v7H8.5A3.5 3.5 0 0 1 5 12.5z" stroke="currentColor" strokeWidth="1.5" />
             </svg>
             Figma
+          </button>
+          {/* Framer/Web Import Button */}
+          <button
+            onClick={() => setShowFramerModal(true)}
+            className="de-btn de-btn-ghost"
+            title="Import from Framer or any website"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M5 16V5h14v5.5H5" />
+              <path d="M5 10.5h14L12 22 5 10.5z" fill="currentColor" stroke="none" />
+            </svg>
+            Framer
           </button>
         </div>
 
@@ -4861,6 +4945,124 @@ Find the component in the codebase and update the styles. If using Tailwind, con
         </div>
       )}
 
+      {/* Framer/Web Import Modal */}
+      {showFramerModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => !framerImporting && setShowFramerModal(false)}
+        >
+          <div
+            style={{
+              background: '#1a1a1a',
+              borderRadius: 16,
+              padding: 32,
+              width: 480,
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M5 16V5h14v5.5H5" fill="#05F" />
+                <path d="M5 10.5h14L12 22 5 10.5z" fill="#05F" />
+              </svg>
+              <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 600, margin: 0 }}>
+                Import from Web
+              </h2>
+            </div>
+            <p style={{ color: '#6b6b6b', fontSize: 13, marginBottom: 24 }}>
+              Paste a Framer or any website URL to import the design
+            </p>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', color: '#a1a1a1', fontSize: 12, marginBottom: 8 }}>
+                Website URL
+              </label>
+              <input
+                type="text"
+                placeholder="https://example.framer.app or any website..."
+                value={framerUrl}
+                onChange={(e) => setFramerUrl(e.target.value)}
+                disabled={framerImporting}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: '#0a0a0a',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  color: '#fff',
+                  fontSize: 14,
+                  outline: 'none',
+                  opacity: framerImporting ? 0.5 : 1,
+                }}
+                autoFocus
+              />
+              <p style={{ color: '#5a5a5a', fontSize: 11, marginTop: 8 }}>
+                Works with Framer sites, Webflow, or any published website
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowFramerModal(false)}
+                disabled={framerImporting}
+                style={{
+                  padding: '10px 20px',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  color: '#a1a1a1',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: framerImporting ? 'not-allowed' : 'pointer',
+                  opacity: framerImporting ? 0.5 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFramerImport}
+                disabled={!framerUrl || framerImporting}
+                style={{
+                  padding: '10px 20px',
+                  background: framerUrl && !framerImporting ? '#0055FF' : '#2a2a2a',
+                  border: 'none',
+                  borderRadius: 8,
+                  color: framerUrl && !framerImporting ? '#fff' : '#6b6b6b',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: framerUrl && !framerImporting ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                {framerImporting ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  'Import'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Notes Sidebar - Professional right side panel */}
       {showNotesPanel && (
       <div
@@ -5159,6 +5361,83 @@ Esempi di cosa documentare:
         onDismissAll={dismissAllErrors}
         fixingErrorId={fixingErrorId}
       />
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '14px 24px',
+            background: toast.type === 'error' ? '#3d1f1f' : toast.type === 'success' ? '#1f3d1f' : '#1f1f3d',
+            border: `1px solid ${toast.type === 'error' ? '#6b2b2b' : toast.type === 'success' ? '#2b6b2b' : '#2b2b6b'}`,
+            borderRadius: 12,
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            zIndex: 10000,
+            animation: 'slideUp 0.3s ease-out',
+          }}
+        >
+          {toast.type === 'error' && (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          )}
+          {toast.type === 'success' && (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6bff6b" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="9 12 11 14 15 10" />
+            </svg>
+          )}
+          {toast.type === 'info' && (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b6bff" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          )}
+          <span>{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#888',
+              cursor: 'pointer',
+              padding: 4,
+              marginLeft: 8,
+              display: 'flex',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+      `}</style>
 
     </div>
   );
