@@ -99,6 +99,9 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string | null } | null>(null);
 
+  // Marquee selection state
+  const [marquee, setMarquee] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+
 
   const {
     elements,
@@ -122,14 +125,15 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
     saveInitialState();
   }, []);
 
-  // Handle canvas click (deselect)
+  // Handle canvas click (deselect) - only if not marquee selecting
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
+      if (marquee) return; // Don't deselect if we just finished marquee
       if (e.target === canvasRef.current || (e.target as HTMLElement).dataset.canvasBackground) {
         deselectAll();
       }
     },
-    [deselectAll]
+    [deselectAll, marquee]
   );
 
 
@@ -162,6 +166,7 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
   }, []);
 
   // Pan: Space+drag, middle mouse, or hand tool
+  // Marquee: Left click drag on canvas background with select tool
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Middle mouse, hand tool, or Space pressed = pan anywhere
@@ -171,6 +176,23 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         setIsPanning(true);
         setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
         return;
+      }
+
+      // Left click on canvas background with select tool = start marquee selection
+      if (e.button === 0 && activeTool === 'select') {
+        const target = e.target as HTMLElement;
+        const isCanvasBackground = target === canvasRef.current ||
+                                   target.dataset.canvasBackground === 'true' ||
+                                   target.dataset.artboardBackground === 'true';
+        if (isCanvasBackground) {
+          e.preventDefault();
+          setMarquee({
+            startX: e.clientX,
+            startY: e.clientY,
+            currentX: e.clientX,
+            currentY: e.clientY,
+          });
+        }
       }
     },
     [pan, activeTool, spacePressed]
@@ -182,14 +204,95 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         e.preventDefault();
         onPanChange({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
       }
+
+      // Update marquee
+      if (marquee) {
+        e.preventDefault();
+        setMarquee(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
+      }
     },
-    [isPanning, panStart, onPanChange]
+    [isPanning, panStart, onPanChange, marquee]
   );
 
   const handleMouseUp = useCallback(() => {
     setIsPanning(false);
     setPanStart(null);
-  }, []);
+
+    // Complete marquee selection
+    if (marquee) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        // Calculate marquee bounds in canvas coordinates
+        const minX = Math.min(marquee.startX, marquee.currentX);
+        const maxX = Math.max(marquee.startX, marquee.currentX);
+        const minY = Math.min(marquee.startY, marquee.currentY);
+        const maxY = Math.max(marquee.startY, marquee.currentY);
+
+        // Only select if marquee is big enough (not just a click)
+        if (maxX - minX > 5 || maxY - minY > 5) {
+          // Convert screen coordinates to canvas coordinates
+          const canvasCenterX = rect.width / 2;
+          const canvasCenterY = rect.height / 2;
+
+          const marqueeCanvasMinX = (minX - rect.left - canvasCenterX - pan.x) / zoom;
+          const marqueeCanvasMaxX = (maxX - rect.left - canvasCenterX - pan.x) / zoom;
+          const marqueeCanvasMinY = (minY - rect.top - canvasCenterY - pan.y) / zoom;
+          const marqueeCanvasMaxY = (maxY - rect.top - canvasCenterY - pan.y) / zoom;
+
+          // Find all elements that intersect with the marquee
+          const currentPage = pages[currentPageId];
+          if (currentPage) {
+            const pageX = currentPage.x || 0;
+            const pageY = currentPage.y || 0;
+            const rootElement = elements[currentPage.rootElementId];
+
+            const selectedIds: string[] = [];
+
+            // Check each child of the current page
+            const checkElement = (elementId: string, offsetX: number, offsetY: number) => {
+              const el = elements[elementId];
+              if (!el || !el.visible || el.locked) return;
+
+              // Skip the page root element itself
+              if (el.type === 'page') {
+                el.children.forEach(childId => checkElement(childId, offsetX, offsetY));
+                return;
+              }
+
+              const elX = offsetX + el.position.x;
+              const elY = offsetY + el.position.y;
+              const elRight = elX + el.size.width;
+              const elBottom = elY + el.size.height;
+
+              // Check if element intersects with marquee
+              if (elX < marqueeCanvasMaxX && elRight > marqueeCanvasMinX &&
+                  elY < marqueeCanvasMaxY && elBottom > marqueeCanvasMinY) {
+                selectedIds.push(elementId);
+              }
+
+              // Check children
+              el.children.forEach(childId => checkElement(childId, elX, elY));
+            };
+
+            if (rootElement) {
+              checkElement(currentPage.rootElementId, pageX, pageY);
+            }
+
+            // Select all found elements
+            if (selectedIds.length > 0) {
+              // Use selectElement with add=true for each element after the first
+              const { selectElement, deselectAll } = useCanvasStore.getState();
+              deselectAll();
+              selectedIds.forEach((id, index) => {
+                selectElement(id, index > 0);
+              });
+            }
+          }
+        }
+      }
+      setMarquee(null);
+    }
+  }, [marquee, zoom, pan, elements, pages, currentPageId]);
 
   // Add element handler - adds to selected container if it can contain children
   const handleAddElement = useCallback(
@@ -502,7 +605,8 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
       const isDeltaPixels = e.deltaMode === 0;
       const hasHorizontalScroll = Math.abs(e.deltaX) > 0;
       const isPinchZoom = e.ctrlKey && isDeltaPixels;
-      const isTrackpad = hasHorizontalScroll || (isDeltaPixels && Math.abs(e.deltaY) < 50 && !e.ctrlKey);
+      // More reliable trackpad detection - trackpad sends many small deltas
+      const isTrackpad = hasHorizontalScroll || (isDeltaPixels && !e.ctrlKey);
 
       // Pinch zoom (trackpad) or Cmd+scroll
       if (isPinchZoom || e.metaKey) {
@@ -884,7 +988,7 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         style={{
           left: '50%',
           top: '50%',
-          transform: `translate(calc(-50% + ${Math.round(pan.x)}px), calc(-50% + ${Math.round(pan.y)}px)) scale(${zoom})`,
+          transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px)) scale(${zoom})`,
           transformOrigin: 'center center',
           willChange: 'transform',
           paddingTop: 50, // Space for drag handles
@@ -915,6 +1019,23 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
           y={contextMenu.y}
           elementId={contextMenu.elementId}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Marquee Selection Rectangle */}
+      {marquee && (
+        <div
+          style={{
+            position: 'fixed',
+            left: Math.min(marquee.startX, marquee.currentX),
+            top: Math.min(marquee.startY, marquee.currentY),
+            width: Math.abs(marquee.currentX - marquee.startX),
+            height: Math.abs(marquee.currentY - marquee.startY),
+            backgroundColor: 'rgba(139, 30, 43, 0.1)',
+            border: '1px solid rgba(139, 30, 43, 0.6)',
+            pointerEvents: 'none',
+            zIndex: 10000,
+          }}
         />
       )}
     </div>

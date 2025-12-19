@@ -507,9 +507,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       };
     }
 
-    // Generate name
-    const existingOfType = Object.values(state.elements).filter(el => el.type === type).length;
-    const name = `${type.charAt(0).toUpperCase() + type.slice(1)} ${existingOfType + 1}`;
+    // Generate name (without numbering)
+    const name = type.charAt(0).toUpperCase() + type.slice(1);
 
     // For auto layout parents, set appropriate resize modes
     const autoLayoutStyles = parentHasAutoLayout ? {
@@ -697,25 +696,11 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     const parent = element.parentId ? state.elements[element.parentId] : null;
     const parentHasAutoLayout = parent && (parent.styles.display === 'flex' || parent.styles.display === 'grid');
 
-    // Helper to generate incremental name (Frame 1 -> Frame 2, Text 1 -> Text 2)
-    const generateIncrementalName = (baseName: string): string => {
-      // Remove " Copy" suffix if present, and trailing numbers
-      let cleanName = baseName.replace(/ Copy\d*$/, '').replace(/ \d+$/, '');
-
-      // Find all elements with similar names to determine next number
-      const existingNames = Object.values(state.elements).map(e => e.name);
-      let nextNum = 1;
-
-      // Find the highest number used
-      for (const name of existingNames) {
-        const match = name.match(new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} (\\d+)$`));
-        if (match) {
-          const num = parseInt(match[1]);
-          if (num >= nextNum) nextNum = num + 1;
-        }
-      }
-
-      return `${cleanName} ${nextNum}`;
+    // Helper to generate copy name (Frame -> Frame Copy, Text -> Text Copy)
+    const generateCopyName = (baseName: string): string => {
+      // Remove existing " Copy" suffix if present
+      const cleanName = baseName.replace(/ Copy$/, '');
+      return `${cleanName} Copy`;
     };
 
     const duplicateRecursive = (
@@ -731,8 +716,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         ? { x: 0, y: 0 }
         : { x: el.position.x + (isTopLevel ? 20 : 0), y: el.position.y + (isTopLevel ? 20 : 0) };
 
-      // Generate incremental name for top-level element, keep original for children
-      const newName = isTopLevel ? generateIncrementalName(el.name) : el.name;
+      // Generate copy name for top-level element, keep original for children
+      const newName = isTopLevel ? generateCopyName(el.name) : el.name;
 
       const newElement: CanvasElement = {
         ...el,
@@ -1459,12 +1444,11 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
     // Create new frame element
     const frameId = generateId('frame');
-    const existingFrames = Object.values(state.elements).filter((el) => el.type === 'frame').length;
 
     const newFrame: CanvasElement = {
       id: frameId,
       type: 'frame',
-      name: `Frame ${existingFrames + 1}`,
+      name: 'Frame',
       position: { x: frameX, y: frameY },
       size: { width: frameWidth, height: frameHeight },
       positionType: 'absolute',

@@ -1142,6 +1142,13 @@ export function PropertiesPanel() {
         const isVertical = styles.flexDirection === 'column' || styles.flexDirection === 'column-reverse';
         const isGrid = styles.display === 'grid';
 
+        // Get padding values with shorthand fallback
+        const basePadding = typeof styles.padding === 'number' ? styles.padding : (parseInt(String(styles.padding)) || 0);
+        const paddingTop = styles.paddingTop ?? basePadding;
+        const paddingRight = styles.paddingRight ?? basePadding;
+        const paddingBottom = styles.paddingBottom ?? basePadding;
+        const paddingLeft = styles.paddingLeft ?? basePadding;
+
         return (
           <Section title="Auto Layout">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1412,16 +1419,18 @@ export function PropertiesPanel() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4 }}>
                     <InputField
-                      value={styles.paddingTop || 0}
+                      value={paddingTop}
                       onChange={(v) => {
                         const val = parseInt(v) || 0;
                         if (isModifierKeyHeld) {
-                          // Set all padding values at once
+                          // Set all padding values at once, clear shorthand
+                          updateStyle('padding', undefined);
                           updateStyle('paddingTop', val);
                           updateStyle('paddingRight', val);
                           updateStyle('paddingBottom', val);
                           updateStyle('paddingLeft', val);
                         } else {
+                          updateStyle('padding', undefined);
                           updateStyle('paddingTop', val);
                         }
                       }}
@@ -1429,15 +1438,17 @@ export function PropertiesPanel() {
                       suffix="↑"
                     />
                     <InputField
-                      value={styles.paddingRight || 0}
+                      value={paddingRight}
                       onChange={(v) => {
                         const val = parseInt(v) || 0;
                         if (isModifierKeyHeld) {
+                          updateStyle('padding', undefined);
                           updateStyle('paddingTop', val);
                           updateStyle('paddingRight', val);
                           updateStyle('paddingBottom', val);
                           updateStyle('paddingLeft', val);
                         } else {
+                          updateStyle('padding', undefined);
                           updateStyle('paddingRight', val);
                         }
                       }}
@@ -1445,15 +1456,17 @@ export function PropertiesPanel() {
                       suffix="→"
                     />
                     <InputField
-                      value={styles.paddingBottom || 0}
+                      value={paddingBottom}
                       onChange={(v) => {
                         const val = parseInt(v) || 0;
                         if (isModifierKeyHeld) {
+                          updateStyle('padding', undefined);
                           updateStyle('paddingTop', val);
                           updateStyle('paddingRight', val);
                           updateStyle('paddingBottom', val);
                           updateStyle('paddingLeft', val);
                         } else {
+                          updateStyle('padding', undefined);
                           updateStyle('paddingBottom', val);
                         }
                       }}
@@ -1461,15 +1474,17 @@ export function PropertiesPanel() {
                       suffix="↓"
                     />
                     <InputField
-                      value={styles.paddingLeft || 0}
+                      value={paddingLeft}
                       onChange={(v) => {
                         const val = parseInt(v) || 0;
                         if (isModifierKeyHeld) {
+                          updateStyle('padding', undefined);
                           updateStyle('paddingTop', val);
                           updateStyle('paddingRight', val);
                           updateStyle('paddingBottom', val);
                           updateStyle('paddingLeft', val);
                         } else {
+                          updateStyle('padding', undefined);
                           updateStyle('paddingLeft', val);
                         }
                       }}
