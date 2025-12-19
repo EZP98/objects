@@ -228,11 +228,14 @@ export interface CanvasPage {
 }
 
 // Canvas settings for customization
+export type EditorTheme = 'dark' | 'light';
+
 export interface CanvasSettings {
   canvasBackground: string;
   selectionColor: string;
   showGrid: boolean;
   gridSize: number;
+  editorTheme: EditorTheme;
 }
 
 export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
@@ -240,7 +243,64 @@ export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
   selectionColor: '#8B1E2B',
   showGrid: true,
   gridSize: 20,
+  editorTheme: 'dark',
 };
+
+// Theme color definitions
+export const THEME_COLORS = {
+  dark: {
+    // Editor UI
+    editorBg: '#0a0808',
+    sidebarBg: '#141414',
+    panelBg: '#1a1a1a',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColorStrong: 'rgba(255, 255, 255, 0.12)',
+    textPrimary: '#ffffff',
+    textSecondary: '#a1a1aa',
+    textMuted: '#71717a',
+    textDimmed: '#52525b',
+    // Canvas
+    canvasBg: '#0a0808',
+    canvasGrid: 'rgba(255, 255, 255, 0.04)',
+    // Accent
+    accent: '#8B1E2B',
+    accentLight: 'rgba(139, 30, 43, 0.15)',
+    accentMedium: 'rgba(139, 30, 43, 0.3)',
+    // Interactive
+    hoverBg: 'rgba(255, 255, 255, 0.06)',
+    activeBg: 'rgba(255, 255, 255, 0.1)',
+    inputBg: 'rgba(0, 0, 0, 0.3)',
+    // Toolbar
+    toolbarBg: 'rgba(20, 20, 20, 0.98)',
+    toolbarBorder: 'rgba(255, 255, 255, 0.1)',
+  },
+  light: {
+    // Editor UI
+    editorBg: '#f5f5f5',
+    sidebarBg: '#ffffff',
+    panelBg: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    borderColorStrong: 'rgba(0, 0, 0, 0.12)',
+    textPrimary: '#1a1a1a',
+    textSecondary: '#525252',
+    textMuted: '#737373',
+    textDimmed: '#a3a3a3',
+    // Canvas
+    canvasBg: '#e5e5e5',
+    canvasGrid: 'rgba(0, 0, 0, 0.06)',
+    // Accent
+    accent: '#8B1E2B',
+    accentLight: 'rgba(139, 30, 43, 0.1)',
+    accentMedium: 'rgba(139, 30, 43, 0.2)',
+    // Interactive
+    hoverBg: 'rgba(0, 0, 0, 0.04)',
+    activeBg: 'rgba(0, 0, 0, 0.08)',
+    inputBg: 'rgba(0, 0, 0, 0.05)',
+    // Toolbar
+    toolbarBg: 'rgba(255, 255, 255, 0.98)',
+    toolbarBorder: 'rgba(0, 0, 0, 0.1)',
+  },
+} as const;
 
 export interface CanvasState {
   projectName: string;

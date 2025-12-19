@@ -71,7 +71,7 @@ function DraggablePage({
     </motion.div>
   );
 }
-import { CanvasElement, CanvasPage, Position, ElementType } from '../../lib/canvas/types';
+import { CanvasElement, CanvasPage, Position, ElementType, THEME_COLORS } from '../../lib/canvas/types';
 import { CanvasElementRenderer } from './CanvasElementRenderer';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CanvasToolbar } from './CanvasToolbar';
@@ -115,6 +115,7 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
     currentPageId,
     selectedElementIds,
     hoveredElementId,
+    canvasSettings,
     selectElement,
     deselectAll,
     setHoveredElement,
@@ -123,7 +124,12 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
     movePagePosition,
     setCurrentPage,
     saveToHistory,
+    toggleEditorTheme,
   } = useCanvasStore();
+
+  // Get theme colors
+  const editorTheme = canvasSettings?.editorTheme || 'dark';
+  const themeColors = THEME_COLORS[editorTheme];
 
   // Initialize history on mount
   useEffect(() => {
@@ -1009,12 +1015,13 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         width: '100%',
         height: '100%',
         minHeight: 0, // Important for flex children
-        background: '#0a0808',
+        background: themeColors.canvasBg,
         cursor: isPanning ? 'grabbing' : (activeTool === 'hand' || spacePressed) ? 'grab' : 'default',
         overflow: 'hidden',
         // Prevent browser back/forward gestures on horizontal scroll
         overscrollBehavior: 'none',
         touchAction: 'none',
+        transition: 'background 0.3s ease',
       }}
       onClick={handleCanvasClick}
       onMouseDown={handleMouseDown}
@@ -1076,6 +1083,8 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         onAddIcon={(iconName) => handleAddElement('icon', { iconName })}
         zoom={zoom}
         onZoomChange={onZoomChange}
+        theme={editorTheme}
+        onThemeToggle={toggleEditorTheme}
       />
 
 

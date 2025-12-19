@@ -33,8 +33,31 @@
   --accent-green: #22c55e;
   --accent-orange: #D4654A;
   --accent-red: #8B1E2B;
+}
 
-  /* Spacing (8pt grid) */
+/* Light Theme Overrides */
+[data-theme="light"] {
+  --bg-canvas: #e5e5e5;
+  --bg-panel: rgba(255, 255, 255, 0.98);
+  --bg-panel-header: rgba(245, 245, 245, 0.98);
+  --bg-input: rgba(0, 0, 0, 0.04);
+  --bg-input-hover: rgba(0, 0, 0, 0.06);
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.08);
+  --bg-selected: rgba(139, 30, 43, 0.15);
+
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-default: rgba(0, 0, 0, 0.12);
+  --border-hover: rgba(0, 0, 0, 0.15);
+
+  --text-primary: #1a1a1a;
+  --text-secondary: #525252;
+  --text-tertiary: #737373;
+  --text-muted: #a3a3a3;
+}
+
+/* Spacing (8pt grid) */
+:root {
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

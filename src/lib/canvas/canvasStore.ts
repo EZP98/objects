@@ -17,6 +17,8 @@ import {
   Size,
   DEFAULT_ELEMENT_CONFIGS,
   ElementStyles,
+  DEFAULT_CANVAS_SETTINGS,
+  EditorTheme,
 } from './types';
 import { Variant, Interaction, Animation } from './interactions';
 import { ResponsiveStyles } from './responsive';
@@ -66,6 +68,7 @@ function createInitialState(): CanvasState {
     currentPageId: pageId,
     selectedElementIds: [],
     hoveredElementId: null,
+    canvasSettings: DEFAULT_CANVAS_SETTINGS,
     clipboard: null,
     history: [],
     historyIndex: -1,
@@ -155,6 +158,10 @@ interface CanvasActions {
 
   // Figma import
   importFigmaDesign: (elements: Record<string, CanvasElement>, rootId: string, rootName: string, rootSize: Size) => string;
+
+  // Canvas Settings / Theme
+  setEditorTheme: (theme: EditorTheme) => void;
+  toggleEditorTheme: () => void;
 
   // Reset
   reset: () => void;
@@ -1901,6 +1908,25 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     return pageId;
   },
 
+  // Canvas Settings / Theme
+  setEditorTheme: (theme: EditorTheme) => {
+    set((state) => ({
+      canvasSettings: {
+        ...state.canvasSettings,
+        editorTheme: theme,
+      },
+    }));
+  },
+
+  toggleEditorTheme: () => {
+    set((state) => ({
+      canvasSettings: {
+        ...state.canvasSettings,
+        editorTheme: state.canvasSettings?.editorTheme === 'dark' ? 'light' : 'dark',
+      },
+    }));
+  },
+
   // Reset
   reset: () => {
     set(createInitialState());
@@ -1915,6 +1941,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         pages: state.pages,
         elements: state.elements,
         currentPageId: state.currentPageId,
+        canvasSettings: state.canvasSettings,
       }),
       version: 2,
       migrate: (persistedState: any, version: number) => {

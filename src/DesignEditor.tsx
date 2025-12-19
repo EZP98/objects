@@ -26,6 +26,7 @@ import { Canvas, CanvasSidebar, ComponentLibrary, PropertiesPanel } from './comp
 import { useCanvasStore, setCurrentProjectId, saveProjectToRecents, loadProjectCanvasState, saveProjectCanvasState, generateCanvasThumbnail } from './lib/canvas/canvasStore';
 import { generateProjectFiles } from './lib/canvas/codeGenerator';
 import type { ElementType } from './lib/canvas/types';
+import { THEME_COLORS } from './lib/canvas/types';
 import { importFromFigma, saveFigmaToken, getFigmaToken, parseFigmaUrl } from './lib/figma/figmaImport';
 import { importFromFramer, parseFramerUrl } from './lib/framer/framerImport';
 import { useCanvasToCode } from './lib/codegen';
@@ -961,6 +962,11 @@ const DesignEditor: React.FC = () => {
   const updatePageNotes = useCanvasStore((state) => state.updatePageNotes);
   const projectName = useCanvasStore((state) => state.projectName) || 'Nuovo Progetto';
   const setProjectName = useCanvasStore((state) => state.setProjectName);
+  const canvasSettings = useCanvasStore((state) => state.canvasSettings);
+
+  // Get theme colors
+  const editorTheme = canvasSettings?.editorTheme || 'dark';
+  const themeColors = THEME_COLORS[editorTheme];
 
   // Canvas to Code sync - generates React code when canvas changes
   const {
@@ -2436,9 +2442,23 @@ const DesignEditor: React.FC = () => {
   // ==========================================
 
   return (
-    <div className="design-editor">
+    <div
+      className="design-editor"
+      style={{
+        background: themeColors.editorBg,
+        transition: 'background 0.3s ease',
+      }}
+      data-theme={editorTheme}
+    >
       {/* Header */}
-      <header className="de-header">
+      <header
+        className="de-header"
+        style={{
+          background: themeColors.sidebarBg,
+          borderColor: themeColors.borderColor,
+          transition: 'background 0.3s ease, border-color 0.3s ease',
+        }}
+      >
         <div className="de-header-left">
           <button onClick={() => window.location.href = '/'} className="de-logo">
             OBJECTS
@@ -2451,15 +2471,16 @@ const DesignEditor: React.FC = () => {
             style={{
               marginLeft: 12,
               padding: '6px 12px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: themeColors.inputBg,
+              border: `1px solid ${themeColors.borderColor}`,
               borderRadius: 8,
               fontSize: 13,
               fontWeight: 500,
-              color: '#fff',
+              color: themeColors.textPrimary,
               outline: 'none',
               minWidth: 120,
               maxWidth: 200,
+              transition: 'background 0.3s ease, border-color 0.3s ease, color 0.3s ease',
             }}
             placeholder="Nome Progetto"
           />

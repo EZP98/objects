@@ -15,6 +15,8 @@ interface CanvasToolbarProps {
   onAddIcon?: (iconName: string) => void;
   zoom?: number;
   onZoomChange?: (zoom: number) => void;
+  theme?: 'dark' | 'light';
+  onThemeToggle?: () => void;
 }
 
 // ============================================================================
@@ -219,6 +221,24 @@ const Icons: Record<string, React.ReactNode> = {
       <path d="M2 12l10 5 10-5"/>
     </svg>
   ),
+  sun: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2"/>
+      <path d="M12 20v2"/>
+      <path d="M4.93 4.93l1.41 1.41"/>
+      <path d="M17.66 17.66l1.41 1.41"/>
+      <path d="M2 12h2"/>
+      <path d="M20 12h2"/>
+      <path d="M6.34 17.66l-1.41 1.41"/>
+      <path d="M19.07 4.93l-1.41 1.41"/>
+    </svg>
+  ),
+  moon: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  ),
 };
 
 // ============================================================================
@@ -233,6 +253,8 @@ export function CanvasToolbar({
   onAddIcon,
   zoom = 1,
   onZoomChange,
+  theme = 'dark',
+  onThemeToggle,
 }: CanvasToolbarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -285,14 +307,12 @@ export function CanvasToolbar({
           gap: 2,
           padding: '8px 10px',
           borderRadius: 16,
-          background: 'rgba(20, 20, 20, 0.98)',
+          background: theme === 'dark' ? 'rgba(20, 20, 20, 0.98)' : 'rgba(255, 255, 255, 0.98)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: `
-            0 0 0 1px rgba(0, 0, 0, 0.5),
-            0 20px 70px -10px rgba(0, 0, 0, 0.7),
-            0 0 40px rgba(0, 0, 0, 0.3)
-          `,
+          border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+          boxShadow: theme === 'dark'
+            ? `0 0 0 1px rgba(0, 0, 0, 0.5), 0 20px 70px -10px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 0, 0, 0.3)`
+            : `0 0 0 1px rgba(0, 0, 0, 0.05), 0 20px 70px -10px rgba(0, 0, 0, 0.15), 0 0 40px rgba(0, 0, 0, 0.1)`,
         }}
       >
         {/* === Tools Section === */}
@@ -598,6 +618,20 @@ export function CanvasToolbar({
               </div>
             )}
           </div>
+
+          {/* Theme Toggle */}
+          {onThemeToggle && (
+            <>
+              <Divider theme={theme} />
+              <ToolButton
+                onClick={onThemeToggle}
+                tooltip={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                theme={theme}
+              >
+                {theme === 'dark' ? Icons.sun : Icons.moon}
+              </ToolButton>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -613,14 +647,18 @@ function ToolButton({
   onClick,
   tooltip,
   accent,
+  theme = 'dark',
   children,
 }: {
   active?: boolean;
   onClick: () => void;
   tooltip: string;
   accent?: boolean;
+  theme?: 'dark' | 'light';
   children: React.ReactNode;
 }) {
+  const isDark = theme === 'dark';
+
   return (
     <button
       onClick={onClick}
@@ -636,24 +674,30 @@ function ToolButton({
         background: active
           ? accent
             ? 'rgba(168, 50, 72, 0.3)'
-            : 'rgba(255, 255, 255, 0.12)'
+            : isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'
           : accent
           ? 'rgba(168, 50, 72, 0.15)'
           : 'transparent',
-        color: active ? '#fff' : accent ? '#A83248' : '#888',
+        color: active
+          ? (isDark ? '#fff' : '#1a1a1a')
+          : accent
+          ? '#A83248'
+          : (isDark ? '#888' : '#666'),
         cursor: 'pointer',
         transition: 'all 0.15s ease',
       }}
       onMouseEnter={(e) => {
         if (!active) {
-          e.currentTarget.style.background = accent ? 'rgba(168, 50, 72, 0.25)' : 'rgba(255, 255, 255, 0.08)';
-          e.currentTarget.style.color = accent ? '#fff' : '#ccc';
+          e.currentTarget.style.background = accent
+            ? 'rgba(168, 50, 72, 0.25)'
+            : (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)');
+          e.currentTarget.style.color = accent ? '#fff' : (isDark ? '#ccc' : '#333');
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
           e.currentTarget.style.background = accent ? 'rgba(168, 50, 72, 0.15)' : 'transparent';
-          e.currentTarget.style.color = accent ? '#A83248' : '#888';
+          e.currentTarget.style.color = accent ? '#A83248' : (isDark ? '#888' : '#666');
         }
       }}
     >
@@ -662,13 +706,13 @@ function ToolButton({
   );
 }
 
-function Divider() {
+function Divider({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
   return (
     <div
       style={{
         width: 1,
         height: 24,
-        background: 'rgba(255, 255, 255, 0.08)',
+        background: theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.1)',
         margin: '0 6px',
       }}
     />
