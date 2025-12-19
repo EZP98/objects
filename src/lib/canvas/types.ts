@@ -278,8 +278,8 @@ export const DEFAULT_ELEMENT_CONFIGS: Record<ElementType, Partial<CanvasElement>
     size: { width: 200, height: 200 },
     styles: {
       backgroundColor: '#f3f4f6',
-      borderRadius: 8,
-      padding: 16,
+      borderRadius: 0,
+      padding: 0,
     },
   },
   stack: {
@@ -287,10 +287,10 @@ export const DEFAULT_ELEMENT_CONFIGS: Record<ElementType, Partial<CanvasElement>
     styles: {
       display: 'flex',
       flexDirection: 'column',
-      gap: 12,
-      padding: 16,
+      gap: 0,
+      padding: 0,
       backgroundColor: '#f9fafb',
-      borderRadius: 8,
+      borderRadius: 0,
     },
   },
   grid: {
@@ -298,8 +298,8 @@ export const DEFAULT_ELEMENT_CONFIGS: Record<ElementType, Partial<CanvasElement>
     styles: {
       display: 'grid',
       gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: 12,
-      padding: 16,
+      gap: 0,
+      padding: 0,
     },
   },
   text: {

@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { useCanvasStore } from '../../lib/canvas/canvasStore';
 import { ElementType } from '../../lib/canvas/types';
+import { IconPicker } from './IconPicker';
 
 // ============================================================================
 // Component Definitions
@@ -98,6 +99,13 @@ const COMPONENT_CATEGORIES = [
         description: 'Text link',
         preview: <LinkPreview />,
       },
+      {
+        id: 'icon',
+        type: 'icon' as ElementType,
+        name: 'Icon',
+        description: 'Lucide icon library',
+        preview: <IconPreview />,
+      },
     ],
   },
   {
@@ -164,11 +172,35 @@ interface ComponentLibraryProps {
 export function ComponentLibrary({ onClose }: ComponentLibraryProps) {
   const [activeCategory, setActiveCategory] = useState('elements');
   const [search, setSearch] = useState('');
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const addElement = useCanvasStore((state) => state.addElement);
 
   const handleAddComponent = (comp: ComponentDef) => {
+    // Special handling for icons - open picker
+    if (comp.type === 'icon') {
+      setShowIconPicker(true);
+      return;
+    }
     addElement(comp.type);
     // TODO: Apply defaultStyles if provided
+  };
+
+  const handleIconSelect = (iconName: string) => {
+    // Add icon element and update with selected icon name
+    const elementId = addElement('icon');
+    if (elementId) {
+      // Update the element with the selected icon name directly in store
+      useCanvasStore.setState((state) => ({
+        elements: {
+          ...state.elements,
+          [elementId]: {
+            ...state.elements[elementId],
+            iconName,
+          },
+        },
+      }));
+    }
+    setShowIconPicker(false);
   };
 
   const activeComponents = COMPONENT_CATEGORIES.find((c) => c.id === activeCategory)?.components || [];
@@ -260,6 +292,14 @@ export function ComponentLibrary({ onClose }: ComponentLibraryProps) {
         <kbd style={styles.kbd}>B</kbd>
         <span>Button</span>
       </div>
+
+      {/* Icon Picker Modal */}
+      {showIconPicker && (
+        <IconPicker
+          onSelect={handleIconSelect}
+          onClose={() => setShowIconPicker(false)}
+        />
+      )}
     </div>
   );
 }
@@ -376,6 +416,26 @@ function InputPreview() {
 function LinkPreview() {
   return (
     <span style={{ color: '#8B1E2B', fontSize: 11, textDecoration: 'underline' }}>Link text</span>
+  );
+}
+
+function IconPreview() {
+  return (
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        background: 'rgba(139, 30, 43, 0.1)',
+        borderRadius: 6,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B1E2B" strokeWidth="2">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+    </div>
   );
 }
 

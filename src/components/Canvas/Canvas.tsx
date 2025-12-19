@@ -54,7 +54,7 @@ function DraggablePage({
       }}
       whileDrag={{ scale: 1.02 }}
     >
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', overflow: 'visible' }}>
         {/* Header - ONLY this triggers page drag */}
         <div
           onPointerDown={(e) => {
@@ -728,6 +728,37 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
     saveToHistory('Move page');
   }, [pages, movePagePosition, saveToHistory]);
 
+  // Calculate content bounds for hug mode
+  const calculateContentBounds = (childIds: string[]) => {
+    if (childIds.length === 0) return { minX: 0, minY: 0, maxX: 200, maxY: 200 };
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    for (const childId of childIds) {
+      const child = elements[childId];
+      if (!child || !child.visible) continue;
+
+      const left = child.position.x;
+      const top = child.position.y;
+      const right = left + child.size.width;
+      const bottom = top + child.size.height;
+
+      minX = Math.min(minX, left);
+      minY = Math.min(minY, top);
+      maxX = Math.max(maxX, right);
+      maxY = Math.max(maxY, bottom);
+    }
+
+    // Add padding
+    const padding = 24;
+    return {
+      minX: Math.max(0, minX - padding),
+      minY: Math.max(0, minY - padding),
+      maxX: maxX + padding,
+      maxY: maxY + padding,
+    };
+  };
+
   // Render a single page/artboard
   const renderPage = (page: CanvasPage, forceCenter = false) => {
     const rootElement = elements[page.rootElementId];
@@ -735,8 +766,28 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
 
     const isCurrentPage = page.id === currentPageId;
 
+    // Check for hug mode and calculate page size
+    const resizeX = (rootElement.styles as any).resizeX || 'fixed';
+    const resizeY = (rootElement.styles as any).resizeY || 'fixed';
+
+    let pageWidth = rootElement.size.width;
+    let pageHeight = rootElement.size.height;
+
+    if (resizeX === 'hug' || resizeY === 'hug') {
+      const bounds = calculateContentBounds(rootElement.children);
+      if (resizeX === 'hug') {
+        pageWidth = Math.max(200, bounds.maxX);
+      }
+      if (resizeY === 'hug') {
+        pageHeight = Math.max(200, bounds.maxY);
+      }
+    }
+
     // In single mode, center the page (ignore x,y position)
     const usePosition = forceCenter ? { x: 0, y: 0 } : { x: page.x || 0, y: page.y || 0 };
+
+    // Check if page has auto-layout
+    const pageHasAutoLayout = rootElement.styles.display === 'flex' || rootElement.styles.display === 'grid';
 
     // Page header (drag handle)
     const pageHeader = (
@@ -745,7 +796,7 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
           position: 'absolute',
           top: -40,
           left: 0,
-          width: rootElement.size.width,
+          width: pageWidth,
           height: 36,
           background: isCurrentPage ? '#A83248' : '#27272a',
           borderRadius: '12px 12px 0 0',
@@ -771,19 +822,20 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
           <circle cx="7.5" cy="11.5" r="2" />
         </svg>
         <span>{page.name}</span>
-        <span style={{ opacity: 0.6, fontSize: 11 }}>{rootElement.size.width} × {rootElement.size.height}</span>
+        <span style={{ opacity: 0.6, fontSize: 11 }}>{Math.round(pageWidth)} × {Math.round(pageHeight)}</span>
       </div>
     );
 
     // Page content (artboard)
+    // pageWidth and pageHeight are already calculated (including hug mode adjustments)
     const pageContent = (
       <>
         {/* Artboard content */}
           <div
             className="relative shadow-2xl"
             style={{
-              width: rootElement.size.width,
-              height: rootElement.size.height,
+              width: pageWidth,
+              height: pageHeight,
               backgroundColor: rootElement.styles.backgroundColor || '#ffffff',
               borderRadius: 8,
               boxShadow: isCurrentPage
@@ -834,7 +886,7 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
 
           {/* Render elements */}
           {(() => {
-            const pageHasAutoLayout = rootElement.styles.display === 'flex' || rootElement.styles.display === 'grid';
+            // pageHasAutoLayout already defined above
             const pageFlexDirection = rootElement.styles.flexDirection || 'column';
             return rootElement.children.map((childId) => {
               const child = elements[childId];
@@ -1021,6 +1073,7 @@ export function Canvas({ zoom, pan, onZoomChange, onPanChange }: CanvasProps) {
         onToolChange={setActiveTool}
         onAddElement={handleAddElement}
         onAddBlock={addBlock}
+        onAddIcon={(iconName) => handleAddElement('icon', { iconName })}
         zoom={zoom}
         onZoomChange={onZoomChange}
       />

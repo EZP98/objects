@@ -9,6 +9,7 @@ import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CanvasElement } from '../../lib/canvas/types';
 import { useCanvasStore } from '../../lib/canvas/canvasStore';
+import { renderLucideIcon } from './IconPicker';
 
 // Container element types that can accept children
 const CONTAINER_TYPES = ['frame', 'stack', 'grid', 'section', 'container', 'row', 'page', 'box'];
@@ -43,6 +44,7 @@ export function CanvasElementRenderer({
   const [isDragging, setIsDragging] = useState(false);
   const [isEditingText, setIsEditingText] = useState(false);
   const [editingContent, setEditingContent] = useState(element.content || '');
+  const [altPressed, setAltPressed] = useState(false);
   const dragStartPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
   const hasDraggedRef = useRef(false);
   const lastClickTimeRef = useRef(0);
@@ -51,6 +53,22 @@ export function CanvasElementRenderer({
   const saveToHistory = useCanvasStore((state) => state.saveToHistory);
   const updateElementContent = useCanvasStore((state) => state.updateElementContent);
   const resizeElement = useCanvasStore((state) => state.resizeElement);
+
+  // Listen for Alt key for inspect mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey) setAltPressed(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.altKey) setAltPressed(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   // Check if this is a text element
   const isTextElement = element.type === 'text' || element.type === 'heading' || element.type === 'paragraph';
@@ -96,6 +114,10 @@ export function CanvasElementRenderer({
   }, [isSelected, isEditingText, element.id, updateElementContent]);
 
   // Handle element click with manual double-click detection
+  // Implements Figma-style selection:
+  // - Click selects parent container first
+  // - Click again to select nested element
+  // - Cmd/Ctrl+Click for direct deep selection
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -117,11 +139,33 @@ export function CanvasElementRenderer({
 
       // Only select if we didn't just finish dragging
       if (!hasDraggedRef.current) {
-        onSelect(element.id, e.shiftKey);
+        // Figma-style selection behavior:
+        // Cmd/Ctrl+Click = deep select (directly select this element)
+        const deepSelect = e.metaKey || e.ctrlKey;
+
+        if (deepSelect) {
+          // Direct deep selection - select this element regardless of parent
+          onSelect(element.id, e.shiftKey);
+        } else {
+          // Normal click - check if we should select parent first
+          const parent = element.parentId ? elements[element.parentId] : null;
+          const parentIsContainer = parent && CONTAINER_TYPES.includes(parent.type);
+          const parentIsPage = parent?.type === 'page';
+          const { selectedElementIds } = useCanvasStore.getState();
+          const parentIsSelected = parent && selectedElementIds.includes(parent.id);
+
+          // If parent is a container (not page) and not selected, select parent first
+          if (parentIsContainer && !parentIsPage && !parentIsSelected) {
+            onSelect(parent.id, e.shiftKey);
+          } else {
+            // Parent is already selected or is a page - select this element
+            onSelect(element.id, e.shiftKey);
+          }
+        }
       }
       hasDraggedRef.current = false;
     },
-    [element.id, element.locked, onSelect, isEditingText, isTextElement]
+    [element.id, element.parentId, element.locked, elements, onSelect, isEditingText, isTextElement]
   );
 
   // Keep native double-click as backup
@@ -238,8 +282,8 @@ export function CanvasElementRenderer({
   const getStyles = (): React.CSSProperties => {
     const { styles } = element;
 
-    // When parent has auto layout, use relative positioning
-    // When parent doesn't have auto layout, use absolute positioning
+    // When parent has auto-layout, children MUST use relative positioning to follow flex/grid flow
+    // When parent doesn't have auto-layout, use absolute positioning for free movement
     const useAbsolute = !parentHasAutoLayout;
 
     // For auto-layout containers, text should fill width by default for proper alignment
@@ -267,14 +311,19 @@ export function CanvasElementRenderer({
     const resizeX = (styles as any).resizeX || 'fixed';
     const resizeY = (styles as any).resizeY || 'fixed';
 
+    // Check parent flex direction for responsive sizing
+    const isParentRow = parentFlexDirection === 'row' || parentFlexDirection === 'row-reverse';
+    const isParentColumn = parentFlexDirection === 'column' || parentFlexDirection === 'column-reverse' || !parentFlexDirection;
+
     // Determine width based on resize mode
     let width: number | string = element.size.width;
     if (parentHasAutoLayout && resizeX === 'fill') {
       width = '100%';
     } else if (resizeX === 'hug') {
       width = 'auto';
-    } else if (autoFillText && resizeX === 'fixed') {
-      // Text in auto-layout should fill width by default for proper text alignment
+    } else if (autoFillText && resizeX === 'fixed' && isParentColumn) {
+      // Text in COLUMN auto-layout should fill width for proper text alignment
+      // In ROW layout, text keeps its fixed width to allow multiple items side by side
       width = '100%';
     }
 
@@ -283,10 +332,11 @@ export function CanvasElementRenderer({
     if (parentHasAutoLayout && resizeY === 'fill') {
       height = '100%';
     } else if (resizeY === 'hug') {
-      height = 'auto';
-    } else if (autoFillText && resizeY === 'fixed') {
-      // Text height can stay auto for natural text flow
-      height = 'auto';
+      // Use fit-content for proper content hugging (like Figma)
+      height = 'fit-content';
+    } else if (autoFillText) {
+      // Text height should be auto for natural text flow
+      height = 'fit-content';
     }
 
     const css: React.CSSProperties = {
@@ -540,7 +590,25 @@ export function CanvasElementRenderer({
         );
 
       case 'icon':
-        // Render icon - either as image or placeholder
+        // Render Lucide icon by name, image, or placeholder
+        if (element.iconName) {
+          // Use Lucide icon
+          return (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: element.styles.color || '#666',
+                pointerEvents: 'none',
+              }}
+            >
+              {renderLucideIcon(element.iconName, element.iconSize || Math.min(element.size.width, element.size.height) * 0.7, element.styles.color)}
+            </div>
+          );
+        }
         return element.src ? (
           <img
             src={element.src}
@@ -565,8 +633,8 @@ export function CanvasElementRenderer({
               pointerEvents: 'none',
             }}
           >
-            <svg width="50%" height="50%" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            <svg width="50%" height="50%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </div>
         );
@@ -662,6 +730,7 @@ export function CanvasElementRenderer({
   };
 
   // Can this element be dragged?
+  // Elements in auto-layout containers cannot be freely dragged (they follow the layout flow)
   const canDrag = !element.locked && !parentHasAutoLayout && !isEditingText;
 
   return (
@@ -685,6 +754,94 @@ export function CanvasElementRenderer({
       onMouseEnter={() => onHover(element.id)}
       onMouseLeave={() => onHover(null)}
     >
+      {/* Alt+Hover Inspect Mode - Shows element properties */}
+      {altPressed && isHovered && !isSelected && (
+        <div
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: '50%',
+            transform: 'translate(-50%, -100%)',
+            background: 'rgba(20, 20, 20, 0.95)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(139, 30, 43, 0.4)',
+            borderRadius: 8,
+            padding: '8px 12px',
+            zIndex: 10000,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          {/* Element name/type */}
+          <div style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#8B1E2B',
+            marginBottom: 6,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            {element.name || element.type}
+          </div>
+
+          {/* Dimensions */}
+          <div style={{
+            display: 'flex',
+            gap: 12,
+            fontSize: 11,
+            color: '#e4e4e7',
+            marginBottom: 4,
+          }}>
+            <span>
+              <span style={{ color: '#71717a' }}>W</span> {Math.round(element.size.width)}
+            </span>
+            <span>
+              <span style={{ color: '#71717a' }}>H</span> {Math.round(element.size.height)}
+            </span>
+          </div>
+
+          {/* Padding if exists */}
+          {hasPadding && (
+            <div style={{
+              display: 'flex',
+              gap: 8,
+              fontSize: 10,
+              color: '#a1a1aa',
+              marginTop: 4,
+              paddingTop: 4,
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            }}>
+              <span title="Padding">
+                <span style={{ color: '#52525b' }}>P</span> {paddingValues.top}/{paddingValues.right}/{paddingValues.bottom}/{paddingValues.left}
+              </span>
+            </div>
+          )}
+
+          {/* Gap if auto-layout */}
+          {element.styles.gap !== undefined && element.styles.gap > 0 && (
+            <div style={{
+              fontSize: 10,
+              color: '#a1a1aa',
+              marginTop: 2,
+            }}>
+              <span style={{ color: '#52525b' }}>Gap</span> {element.styles.gap}
+            </div>
+          )}
+
+          {/* Border radius if exists */}
+          {element.styles.borderRadius !== undefined && element.styles.borderRadius > 0 && (
+            <div style={{
+              fontSize: 10,
+              color: '#a1a1aa',
+              marginTop: 2,
+            }}>
+              <span style={{ color: '#52525b' }}>Radius</span> {element.styles.borderRadius}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Padding visualization overlay - Figma style */}
       {showPaddingOverlay && (
         <>

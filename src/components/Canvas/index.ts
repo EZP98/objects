@@ -12,3 +12,4 @@ export { PropertiesPanel } from './PropertiesPanel';
 export { TokensPanel } from './TokensPanel';
 export { ResponsiveToolbar, BreakpointSelector } from './ResponsiveToolbar';
 export { InteractionsPanel } from './InteractionsPanel';
+export { IconPicker, renderLucideIcon } from './IconPicker';

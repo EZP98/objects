@@ -746,6 +746,12 @@ export function PropertiesPanel() {
       ...selectedElement.size,
       [key]: value,
     });
+    // When manually setting size, switch to "fixed" mode (like Figma)
+    if (key === 'width') {
+      updateStyle('resizeX' as any, 'fixed');
+    } else {
+      updateStyle('resizeY' as any, 'fixed');
+    }
   };
 
   const updatePosition = (key: 'x' | 'y', value: number) => {
@@ -872,21 +878,35 @@ export function PropertiesPanel() {
               <SelectField
                 label=""
                 value={(styles as any).resizeX || 'fixed'}
-                options={[
-                  { value: 'fixed', label: 'Fixed' },
-                  { value: 'hug', label: 'Hug' },
-                  { value: 'fill', label: 'Fill' },
-                ]}
+                options={
+                  selectedElement.type === 'page'
+                    ? [
+                        { value: 'fixed', label: 'Fixed' },
+                        { value: 'hug', label: 'Hug' },
+                      ]
+                    : [
+                        { value: 'fixed', label: 'Fixed' },
+                        { value: 'hug', label: 'Hug' },
+                        { value: 'fill', label: 'Fill' },
+                      ]
+                }
                 onChange={(v) => updateStyle('resizeX' as any, v)}
               />
               <SelectField
                 label=""
                 value={(styles as any).resizeY || 'fixed'}
-                options={[
-                  { value: 'fixed', label: 'Fixed' },
-                  { value: 'hug', label: 'Hug' },
-                  { value: 'fill', label: 'Fill' },
-                ]}
+                options={
+                  selectedElement.type === 'page'
+                    ? [
+                        { value: 'fixed', label: 'Fixed' },
+                        { value: 'hug', label: 'Hug' },
+                      ]
+                    : [
+                        { value: 'fixed', label: 'Fixed' },
+                        { value: 'hug', label: 'Hug' },
+                        { value: 'fill', label: 'Fill' },
+                      ]
+                }
                 onChange={(v) => updateStyle('resizeY' as any, v)}
               />
             </div>
@@ -1183,6 +1203,9 @@ export function PropertiesPanel() {
                     onClick={() => {
                       updateStyle('display', 'flex');
                       updateStyle('flexDirection', 'column');
+                      // When enabling auto-layout, default to Hug like Figma
+                      updateStyle('resizeX' as any, 'hug');
+                      updateStyle('resizeY' as any, 'hug');
                     }}
                     style={{
                       flex: 1,
@@ -1207,6 +1230,9 @@ export function PropertiesPanel() {
                     onClick={() => {
                       updateStyle('display', 'flex');
                       updateStyle('flexDirection', 'row');
+                      // When enabling auto-layout, default to Hug like Figma
+                      updateStyle('resizeX' as any, 'hug');
+                      updateStyle('resizeY' as any, 'hug');
                     }}
                     style={{
                       flex: 1,
@@ -1255,6 +1281,16 @@ export function PropertiesPanel() {
                   </button>
                 </div>
               </div>
+
+              {/* Direction label when enabled */}
+              {isAutoLayoutEnabled && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#71717a', width: 40 }}>Dir</div>
+                  <div style={{ fontSize: 11, color: '#a1a1aa' }}>
+                    {isGrid ? 'Grid' : isVertical ? 'Verticale (Column)' : 'Orizzontale (Row)'}
+                  </div>
+                </div>
+              )}
 
               {/* Show options only when Auto Layout is enabled */}
               {isAutoLayoutEnabled && !isGrid && (

@@ -5,12 +5,14 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { IconPicker } from './IconPicker';
 
 interface CanvasToolbarProps {
   activeTool: 'select' | 'hand' | 'frame' | 'text';
   onToolChange: (tool: 'select' | 'hand' | 'frame' | 'text') => void;
   onAddElement: (type: string) => void;
   onAddBlock?: (blockId: string) => void;
+  onAddIcon?: (iconName: string) => void;
   zoom?: number;
   onZoomChange?: (zoom: number) => void;
 }
@@ -210,6 +212,13 @@ const Icons: Record<string, React.ReactNode> = {
       <path d="M12 5v14M5 12h14"/>
     </svg>
   ),
+  plugin: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+  ),
 };
 
 // ============================================================================
@@ -221,18 +230,24 @@ export function CanvasToolbar({
   onToolChange,
   onAddElement,
   onAddBlock,
+  onAddIcon,
   zoom = 1,
   onZoomChange,
 }: CanvasToolbarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [activeTab, setActiveTab] = useState<'primitives' | 'layout' | 'blocks'>('primitives');
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const iconPickerRef = useRef<HTMLDivElement>(null);
 
   // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
         setShowAddMenu(false);
+      }
+      if (iconPickerRef.current && !iconPickerRef.current.contains(e.target as Node)) {
+        setShowIconPicker(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -550,6 +565,39 @@ export function CanvasToolbar({
               </div>
             </>
           )}
+
+          {/* Icon Picker Button */}
+          <Divider />
+          <div ref={iconPickerRef} style={{ position: 'relative' }}>
+            <ToolButton
+              active={showIconPicker}
+              onClick={() => setShowIconPicker(!showIconPicker)}
+              tooltip="Icone (Lucide)"
+            >
+              {Icons.plugin}
+            </ToolButton>
+
+            {showIconPicker && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 'calc(100% + 12px)',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                }}
+              >
+                <IconPicker
+                  onSelect={(iconName) => {
+                    if (onAddIcon) {
+                      onAddIcon(iconName);
+                    }
+                    setShowIconPicker(false);
+                  }}
+                  onClose={() => setShowIconPicker(false)}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

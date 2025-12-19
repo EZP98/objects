@@ -495,20 +495,17 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     const contentWidth = parent.size.width - paddingLeft - paddingRight;
     const contentHeight = parent.size.height - paddingTop - paddingBottom;
 
-    // Calculate position - only used for non-auto-layout parents
-    let elementPos = { x: 0, y: 0 };
-    if (!parentHasAutoLayout) {
-      const existingChildrenCount = parent.children.length;
-      // Center within content area (after padding)
-      const centerX = paddingLeft + (contentWidth - elementSize.width) / 2;
-      const centerY = paddingTop + (contentHeight - elementSize.height) / 2;
-      const offsetX = existingChildrenCount * 30;
-      const offsetY = existingChildrenCount * 30;
-      elementPos = position || {
-        x: Math.round(Math.max(paddingLeft, centerX + offsetX)),
-        y: Math.round(Math.max(paddingTop, centerY + offsetY)),
-      };
-    }
+    // Calculate position - always calculate a proper position for free movement
+    const existingChildrenCount = parent.children.length;
+    // Center within content area (after padding)
+    const centerX = paddingLeft + (contentWidth - elementSize.width) / 2;
+    const centerY = paddingTop + (contentHeight - elementSize.height) / 2;
+    const offsetX = existingChildrenCount * 30;
+    const offsetY = existingChildrenCount * 30;
+    const elementPos = position || {
+      x: Math.round(Math.max(paddingLeft, centerX + offsetX)),
+      y: Math.round(Math.max(paddingTop, centerY + offsetY)),
+    };
 
     // Generate name (without numbering)
     const name = type.charAt(0).toUpperCase() + type.slice(1);
@@ -525,7 +522,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       name,
       position: elementPos,
       size: config.size || { width: 100, height: 100 },
-      positionType: parentHasAutoLayout ? 'relative' : 'absolute',
+      positionType: 'absolute',
       styles: { ...(config.styles || {}), ...autoLayoutStyles },
       content: config.content,
       // Generate unique random image URL for each image element
