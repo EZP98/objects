@@ -356,12 +356,21 @@ export function CanvasElementRenderer({
       })(),
       gap: styles.gap,
       gridTemplateColumns: styles.gridTemplateColumns,
-      // Spacing
-      padding: styles.padding,
-      paddingTop: styles.paddingTop,
-      paddingRight: styles.paddingRight,
-      paddingBottom: styles.paddingBottom,
-      paddingLeft: styles.paddingLeft,
+      // Spacing - resolve padding values consistently (shorthand fallback like PropertiesPanel)
+      ...(() => {
+        const basePadding = typeof styles.padding === 'number' ? styles.padding : (parseInt(String(styles.padding)) || 0);
+        const pt = styles.paddingTop ?? basePadding;
+        const pr = styles.paddingRight ?? basePadding;
+        const pb = styles.paddingBottom ?? basePadding;
+        const pl = styles.paddingLeft ?? basePadding;
+        // Set individual values - only include if > 0 to avoid clutter, but 0 is valid
+        return {
+          paddingTop: pt,
+          paddingRight: pr,
+          paddingBottom: pb,
+          paddingLeft: pl,
+        };
+      })(),
       // Background
       backgroundColor: styles.backgroundColor,
       backgroundImage: styles.backgroundImage,

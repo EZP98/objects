@@ -2375,7 +2375,7 @@ export function PropertiesPanel() {
       {/* Image Source (for images) */}
       {selectedElement.type === 'image' && (
         <Section title="Image">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <InputField
               label="URL"
               value={selectedElement.src || ''}
@@ -2386,17 +2386,275 @@ export function PropertiesPanel() {
               }}
               type="text"
             />
-            <SelectField
-              label="Fit"
-              value={(styles as any).objectFit || 'cover'}
-              options={[
-                { value: 'cover', label: 'Cover' },
-                { value: 'contain', label: 'Contain' },
-                { value: 'fill', label: 'Fill' },
-                { value: 'none', label: 'None' },
-              ]}
-              onChange={(v) => updateStyle('objectFit' as any, v)}
-            />
+
+            {/* Fit & Position */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <SelectField
+                label="Fit"
+                value={(styles as any).objectFit || 'cover'}
+                options={[
+                  { value: 'cover', label: 'Cover' },
+                  { value: 'contain', label: 'Contain' },
+                  { value: 'fill', label: 'Fill' },
+                  { value: 'none', label: 'None' },
+                  { value: 'scale-down', label: 'Scale Down' },
+                ]}
+                onChange={(v) => updateStyle('objectFit' as any, v)}
+              />
+              <SelectField
+                label="Position"
+                value={(styles as any).objectPosition || 'center'}
+                options={[
+                  { value: 'center', label: 'Center' },
+                  { value: 'top', label: 'Top' },
+                  { value: 'bottom', label: 'Bottom' },
+                  { value: 'left', label: 'Left' },
+                  { value: 'right', label: 'Right' },
+                  { value: 'top left', label: 'Top Left' },
+                  { value: 'top right', label: 'Top Right' },
+                  { value: 'bottom left', label: 'Bottom Left' },
+                  { value: 'bottom right', label: 'Bottom Right' },
+                ]}
+                onChange={(v) => updateStyle('objectPosition' as any, v)}
+              />
+            </div>
+
+            {/* Transform Actions */}
+            <div>
+              <div style={{ fontSize: 10, color: '#52525b', marginBottom: 6, fontWeight: 600 }}>TRANSFORM</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  onClick={() => {
+                    const current = (styles as any).transform || '';
+                    const hasFlipX = current.includes('scaleX(-1)');
+                    const newTransform = hasFlipX
+                      ? current.replace('scaleX(-1)', '').trim()
+                      : `${current} scaleX(-1)`.trim();
+                    updateStyle('transform' as any, newTransform || undefined);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 8px',
+                    background: (styles as any).transform?.includes('scaleX(-1)') ? '#8B1E2B' : '#27272a',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 4,
+                    color: '#e4e4e7',
+                    fontSize: 10,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                  title="Flip Horizontal"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M16 3h5v5M8 3H3v5M21 3l-7 7M3 3l7 7M16 21h5v-5M8 21H3v-5M21 21l-7-7M3 21l7-7" />
+                  </svg>
+                  Flip H
+                </button>
+                <button
+                  onClick={() => {
+                    const current = (styles as any).transform || '';
+                    const hasFlipY = current.includes('scaleY(-1)');
+                    const newTransform = hasFlipY
+                      ? current.replace('scaleY(-1)', '').trim()
+                      : `${current} scaleY(-1)`.trim();
+                    updateStyle('transform' as any, newTransform || undefined);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 8px',
+                    background: (styles as any).transform?.includes('scaleY(-1)') ? '#8B1E2B' : '#27272a',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 4,
+                    color: '#e4e4e7',
+                    fontSize: 10,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                  title="Flip Vertical"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 16v5h5M21 16v5h-5M3 8V3h5M21 8V3h-5M3 21l7-7M21 21l-7-7M3 3l7 7M21 3l-7 7" />
+                  </svg>
+                  Flip V
+                </button>
+                <button
+                  onClick={() => {
+                    const current = (styles as any).transform || '';
+                    const rotateMatch = current.match(/rotate\((\d+)deg\)/);
+                    const currentRotate = rotateMatch ? parseInt(rotateMatch[1]) : 0;
+                    const newRotate = (currentRotate + 90) % 360;
+                    const newTransform = current.replace(/rotate\(\d+deg\)/, '').trim();
+                    updateStyle('transform' as any, newRotate ? `${newTransform} rotate(${newRotate}deg)`.trim() : newTransform || undefined);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 8px',
+                    background: '#27272a',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 4,
+                    color: '#e4e4e7',
+                    fontSize: 10,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                  title="Rotate 90°"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  </svg>
+                  Rotate
+                </button>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div>
+              <div style={{ fontSize: 10, color: '#52525b', marginBottom: 6, fontWeight: 600 }}>ADJUSTMENTS</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, color: '#71717a', width: 60 }}>Brightness</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={parseInt(((styles as any).filter?.match(/brightness\((\d+)%\)/)?.[1]) || '100')}
+                    onChange={(e) => {
+                      const currentFilter = (styles as any).filter || '';
+                      const newBrightness = `brightness(${e.target.value}%)`;
+                      const newFilter = currentFilter.includes('brightness')
+                        ? currentFilter.replace(/brightness\(\d+%\)/, newBrightness)
+                        : `${currentFilter} ${newBrightness}`.trim();
+                      updateStyle('filter' as any, newFilter);
+                    }}
+                    style={{ flex: 1, accentColor: '#8B1E2B' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#a1a1aa', width: 30, textAlign: 'right' }}>
+                    {parseInt(((styles as any).filter?.match(/brightness\((\d+)%\)/)?.[1]) || '100')}%
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, color: '#71717a', width: 60 }}>Contrast</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={parseInt(((styles as any).filter?.match(/contrast\((\d+)%\)/)?.[1]) || '100')}
+                    onChange={(e) => {
+                      const currentFilter = (styles as any).filter || '';
+                      const newContrast = `contrast(${e.target.value}%)`;
+                      const newFilter = currentFilter.includes('contrast')
+                        ? currentFilter.replace(/contrast\(\d+%\)/, newContrast)
+                        : `${currentFilter} ${newContrast}`.trim();
+                      updateStyle('filter' as any, newFilter);
+                    }}
+                    style={{ flex: 1, accentColor: '#8B1E2B' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#a1a1aa', width: 30, textAlign: 'right' }}>
+                    {parseInt(((styles as any).filter?.match(/contrast\((\d+)%\)/)?.[1]) || '100')}%
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, color: '#71717a', width: 60 }}>Saturation</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={parseInt(((styles as any).filter?.match(/saturate\((\d+)%\)/)?.[1]) || '100')}
+                    onChange={(e) => {
+                      const currentFilter = (styles as any).filter || '';
+                      const newSaturate = `saturate(${e.target.value}%)`;
+                      const newFilter = currentFilter.includes('saturate')
+                        ? currentFilter.replace(/saturate\(\d+%\)/, newSaturate)
+                        : `${currentFilter} ${newSaturate}`.trim();
+                      updateStyle('filter' as any, newFilter);
+                    }}
+                    style={{ flex: 1, accentColor: '#8B1E2B' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#a1a1aa', width: 30, textAlign: 'right' }}>
+                    {parseInt(((styles as any).filter?.match(/saturate\((\d+)%\)/)?.[1]) || '100')}%
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, color: '#71717a', width: 60 }}>Blur</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={parseInt(((styles as any).filter?.match(/blur\((\d+)px\)/)?.[1]) || '0')}
+                    onChange={(e) => {
+                      const currentFilter = (styles as any).filter || '';
+                      const val = parseInt(e.target.value);
+                      if (val === 0) {
+                        const newFilter = currentFilter.replace(/blur\(\d+px\)/, '').trim();
+                        updateStyle('filter' as any, newFilter || undefined);
+                      } else {
+                        const newBlur = `blur(${val}px)`;
+                        const newFilter = currentFilter.includes('blur')
+                          ? currentFilter.replace(/blur\(\d+px\)/, newBlur)
+                          : `${currentFilter} ${newBlur}`.trim();
+                        updateStyle('filter' as any, newFilter);
+                      }
+                    }}
+                    style={{ flex: 1, accentColor: '#8B1E2B' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#a1a1aa', width: 30, textAlign: 'right' }}>
+                    {parseInt(((styles as any).filter?.match(/blur\((\d+)px\)/)?.[1]) || '0')}px
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, color: '#71717a', width: 60 }}>Grayscale</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={parseInt(((styles as any).filter?.match(/grayscale\((\d+)%\)/)?.[1]) || '0')}
+                    onChange={(e) => {
+                      const currentFilter = (styles as any).filter || '';
+                      const val = parseInt(e.target.value);
+                      if (val === 0) {
+                        const newFilter = currentFilter.replace(/grayscale\(\d+%\)/, '').trim();
+                        updateStyle('filter' as any, newFilter || undefined);
+                      } else {
+                        const newGray = `grayscale(${val}%)`;
+                        const newFilter = currentFilter.includes('grayscale')
+                          ? currentFilter.replace(/grayscale\(\d+%\)/, newGray)
+                          : `${currentFilter} ${newGray}`.trim();
+                        updateStyle('filter' as any, newFilter);
+                      }
+                    }}
+                    style={{ flex: 1, accentColor: '#8B1E2B' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#a1a1aa', width: 30, textAlign: 'right' }}>
+                    {parseInt(((styles as any).filter?.match(/grayscale\((\d+)%\)/)?.[1]) || '0')}%
+                  </span>
+                </div>
+                {/* Reset Filters Button */}
+                <button
+                  onClick={() => updateStyle('filter' as any, undefined)}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#27272a',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 4,
+                    color: '#a1a1aa',
+                    fontSize: 10,
+                    cursor: 'pointer',
+                    marginTop: 4,
+                  }}
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
           </div>
         </Section>
       )}

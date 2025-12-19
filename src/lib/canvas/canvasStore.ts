@@ -699,13 +699,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     const parent = element.parentId ? state.elements[element.parentId] : null;
     const parentHasAutoLayout = parent && (parent.styles.display === 'flex' || parent.styles.display === 'grid');
 
-    // Helper to generate copy name (Frame -> Frame Copy, Text -> Text Copy)
-    const generateCopyName = (baseName: string): string => {
-      // Remove existing " Copy" suffix if present
-      const cleanName = baseName.replace(/ Copy$/, '');
-      return `${cleanName} Copy`;
-    };
-
     const duplicateRecursive = (
       el: CanvasElement,
       newParentId: string,
@@ -719,13 +712,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         ? { x: 0, y: 0 }
         : { x: el.position.x + (isTopLevel ? 20 : 0), y: el.position.y + (isTopLevel ? 20 : 0) };
 
-      // Generate copy name for top-level element, keep original for children
-      const newName = isTopLevel ? generateCopyName(el.name) : el.name;
-
       const newElement: CanvasElement = {
         ...el,
         id: newId,
-        name: newName,
+        name: el.name,
         position: newPosition,
         parentId: newParentId,
         children: [],
@@ -1130,7 +1120,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         id: newId,
         parentId: oldElement.parentId ? idMap[oldElement.parentId] : undefined,
         children: oldElement.children.map(childId => idMap[childId]).filter(Boolean),
-        name: oldId === page.rootElementId ? `${page.name} Copy` : oldElement.name,
+        name: oldElement.name,
       };
     }
 
@@ -1167,7 +1157,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     const newPage: CanvasPage = {
       ...page,
       id: newPageId,
-      name: `${page.name} Copy`,
+      name: page.name,
       rootElementId: newRootId,
       x: newPageX,
       y: pageY,

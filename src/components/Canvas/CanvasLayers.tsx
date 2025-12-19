@@ -2,9 +2,10 @@
  * Canvas Layers Panel
  *
  * Shows a tree view of canvas elements similar to Figma/Plasmic.
+ * Supports drag and drop to reparent elements.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useCanvasStore } from '../../lib/canvas/canvasStore';
 import { CanvasElement, ElementType } from '../../lib/canvas/types';
 
@@ -18,6 +19,12 @@ const TYPE_ICONS: Record<ElementType, React.ReactNode> = {
   frame: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="3" width="18" height="18" rx="2" />
+    </svg>
+  ),
+  section: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
     </svg>
   ),
   stack: (
@@ -78,13 +85,42 @@ const TYPE_ICONS: Record<ElementType, React.ReactNode> = {
   ),
 };
 
+// Drag and drop state
+interface DragState {
+  draggedId: string | null;
+  targetId: string | null;
+  dropPosition: 'inside' | 'before' | 'after' | null;
+}
+
+const dragState: DragState = {
+  draggedId: null,
+  targetId: null,
+  dropPosition: null,
+};
+
 interface LayerItemProps {
   element: CanvasElement;
   depth: number;
+  onDragStart: (id: string) => void;
+  onDragEnd: () => void;
+  onDragOver: (id: string, position: 'inside' | 'before' | 'after') => void;
+  onDrop: (targetId: string, position: 'inside' | 'before' | 'after') => void;
+  draggedId: string | null;
+  dropTarget: { id: string; position: 'inside' | 'before' | 'after' } | null;
 }
 
-function LayerItem({ element, depth }: LayerItemProps) {
+function LayerItem({
+  element,
+  depth,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  draggedId,
+  dropTarget,
+}: LayerItemProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const rowRef = useRef<HTMLDivElement>(null);
 
   const {
     elements,
@@ -100,6 +136,9 @@ function LayerItem({ element, depth }: LayerItemProps) {
   const isSelected = selectedElementIds.includes(element.id);
   const isHovered = hoveredElementId === element.id;
   const hasChildren = element.children.length > 0;
+  const isDragging = draggedId === element.id;
+  const isDropTarget = dropTarget?.id === element.id;
+  const canAcceptDrop = element.type === 'frame' || element.type === 'page' || element.type === 'section';
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(element.name);
@@ -111,14 +150,103 @@ function LayerItem({ element, depth }: LayerItemProps) {
     setIsRenaming(false);
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', element.id);
+    onDragStart(element.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!rowRef.current || draggedId === element.id) return;
+
+    const rect = rowRef.current.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const height = rect.height;
+
+    let position: 'inside' | 'before' | 'after';
+
+    if (canAcceptDrop) {
+      // For containers, check if dropping inside or before/after
+      if (y < height * 0.25) {
+        position = 'before';
+      } else if (y > height * 0.75) {
+        position = 'after';
+      } else {
+        position = 'inside';
+      }
+    } else {
+      // For non-containers, only before/after
+      position = y < height / 2 ? 'before' : 'after';
+    }
+
+    onDragOver(element.id, position);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (dropTarget && draggedId !== element.id) {
+      onDrop(dropTarget.id, dropTarget.position);
+    }
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd();
+  };
+
+  // Calculate drop indicator style
+  const getDropIndicatorStyle = (): React.CSSProperties | null => {
+    if (!isDropTarget || !dropTarget) return null;
+
+    const baseStyle: React.CSSProperties = {
+      position: 'absolute',
+      left: depth * 16 + 8,
+      right: 8,
+      height: 2,
+      background: '#0099FF',
+      borderRadius: 1,
+      pointerEvents: 'none',
+    };
+
+    if (dropTarget.position === 'before') {
+      return { ...baseStyle, top: 0 };
+    } else if (dropTarget.position === 'after') {
+      return { ...baseStyle, bottom: 0 };
+    } else if (dropTarget.position === 'inside') {
+      return {
+        position: 'absolute',
+        inset: 2,
+        border: '2px solid #0099FF',
+        borderRadius: 4,
+        pointerEvents: 'none',
+      };
+    }
+    return null;
+  };
+
+  const dropIndicatorStyle = getDropIndicatorStyle();
+
   return (
     <div>
       {/* Layer row */}
       <div
+        ref={rowRef}
+        draggable={element.type !== 'page'}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onDragEnd={handleDragEnd}
+        onDragLeave={() => {}}
         className={`
-          flex items-center gap-1 px-2 py-1 cursor-pointer text-xs
-          ${isSelected ? 'bg-indigo-500/30 text-white' : 'text-gray-400 hover:bg-white/5'}
+          relative flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group
+          ${isSelected ? 'bg-[#8B1E2B]/40 text-white' : 'text-gray-400 hover:bg-white/5'}
           ${isHovered && !isSelected ? 'bg-white/10' : ''}
+          ${isDragging ? 'opacity-50' : ''}
         `}
         style={{ paddingLeft: depth * 16 + 8 }}
         onClick={() => selectElement(element.id)}
@@ -126,6 +254,9 @@ function LayerItem({ element, depth }: LayerItemProps) {
         onMouseLeave={() => setHoveredElement(null)}
         onDoubleClick={() => setIsRenaming(true)}
       >
+        {/* Drop indicator */}
+        {dropIndicatorStyle && <div style={dropIndicatorStyle} />}
+
         {/* Expand/collapse button */}
         {hasChildren ? (
           <button
@@ -155,8 +286,8 @@ function LayerItem({ element, depth }: LayerItemProps) {
         )}
 
         {/* Type icon */}
-        <span className={isSelected ? 'text-indigo-300' : 'text-gray-500'}>
-          {TYPE_ICONS[element.type]}
+        <span className={isSelected ? 'text-[#ff6b6b]' : 'text-gray-500'}>
+          {TYPE_ICONS[element.type] || TYPE_ICONS.frame}
         </span>
 
         {/* Name */}
@@ -173,7 +304,7 @@ function LayerItem({ element, depth }: LayerItemProps) {
                 setIsRenaming(false);
               }
             }}
-            className="flex-1 bg-transparent border border-indigo-500 rounded px-1 text-white outline-none"
+            className="flex-1 bg-transparent border border-[#8B1E2B] rounded px-1 text-white outline-none"
             autoFocus
             onClick={(e) => e.stopPropagation()}
           />
@@ -239,7 +370,19 @@ function LayerItem({ element, depth }: LayerItemProps) {
           {element.children.map((childId) => {
             const child = elements[childId];
             if (!child) return null;
-            return <LayerItem key={childId} element={child} depth={depth + 1} />;
+            return (
+              <LayerItem
+                key={childId}
+                element={child}
+                depth={depth + 1}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                draggedId={draggedId}
+                dropTarget={dropTarget}
+              />
+            );
           })}
         </div>
       )}
@@ -248,10 +391,89 @@ function LayerItem({ element, depth }: LayerItemProps) {
 }
 
 export function CanvasLayers() {
-  const { pages, elements, currentPageId, addPage, setCurrentPage } = useCanvasStore();
+  const { pages, elements, currentPageId, addPage, setCurrentPage, reparentElement } = useCanvasStore();
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; position: 'inside' | 'before' | 'after' } | null>(null);
 
   const currentPage = pages[currentPageId];
   const rootElement = currentPage ? elements[currentPage.rootElementId] : null;
+
+  const handleDragStart = (id: string) => {
+    setDraggedId(id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDropTarget(null);
+  };
+
+  const handleDragOver = (id: string, position: 'inside' | 'before' | 'after') => {
+    if (draggedId && id !== draggedId) {
+      setDropTarget({ id, position });
+    }
+  };
+
+  const handleDrop = (targetId: string, position: 'inside' | 'before' | 'after') => {
+    if (!draggedId || draggedId === targetId) return;
+
+    const draggedElement = elements[draggedId];
+    const targetElement = elements[targetId];
+
+    if (!draggedElement || !targetElement) return;
+
+    // Prevent dropping parent into child
+    const isDescendant = (parentId: string, childId: string): boolean => {
+      const parent = elements[parentId];
+      if (!parent) return false;
+      if (parent.children.includes(childId)) return true;
+      return parent.children.some(id => isDescendant(id, childId));
+    };
+
+    if (isDescendant(draggedId, targetId)) {
+      console.warn('Cannot drop parent into its own child');
+      handleDragEnd();
+      return;
+    }
+
+    if (position === 'inside') {
+      // Drop inside target (reparent)
+      reparentElement(draggedId, targetId);
+    } else {
+      // Drop before/after target (reorder within same parent)
+      const targetParentId = targetElement.parentId;
+      if (!targetParentId) {
+        handleDragEnd();
+        return;
+      }
+
+      // First reparent to target's parent if different
+      if (draggedElement.parentId !== targetParentId) {
+        reparentElement(draggedId, targetParentId);
+      }
+
+      // Then reorder within parent
+      const parent = elements[targetParentId];
+      if (parent) {
+        const newChildren = [...parent.children.filter(id => id !== draggedId)];
+        const targetIndex = newChildren.indexOf(targetId);
+        const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+        newChildren.splice(insertIndex, 0, draggedId);
+
+        // Update parent's children order
+        useCanvasStore.setState((state) => ({
+          elements: {
+            ...state.elements,
+            [targetParentId]: {
+              ...state.elements[targetParentId],
+              children: newChildren,
+            },
+          },
+        }));
+      }
+    }
+
+    handleDragEnd();
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#1a1a1a] text-white">
@@ -307,7 +529,19 @@ export function CanvasLayers() {
             rootElement.children.map((childId) => {
               const child = elements[childId];
               if (!child) return null;
-              return <LayerItem key={childId} element={child} depth={0} />;
+              return (
+                <LayerItem
+                  key={childId}
+                  element={child}
+                  depth={0}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  draggedId={draggedId}
+                  dropTarget={dropTarget}
+                />
+              );
             })
           ) : (
             <div className="px-3 py-8 text-center text-gray-600 text-xs">

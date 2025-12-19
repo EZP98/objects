@@ -926,7 +926,7 @@ const DesignEditor: React.FC = () => {
 
     const newPage: Page = {
       id: `page-${Date.now()}`,
-      name: `${page.name} Copy`,
+      name: page.name,
       elements: page.elements.map(el => ({
         ...el,
         id: `${el.id}-copy-${Date.now()}`,
@@ -2494,7 +2494,7 @@ const DesignEditor: React.FC = () => {
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M4 0h16v8h-8v8H4V0zm0 16h8l8 8H4v-8z" />
+              <path d="M5 2h14v7h-7v7H5V2zm0 14h7l7 7H5v-7z" />
             </svg>
             Framer
           </button>
@@ -4972,7 +4972,7 @@ Find the component in the codebase and update the styles. If using Tailwind, con
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="#0099FF">
-                <path d="M4 0h16v8h-8v8H4V0zm0 16h8l8 8H4v-8z" />
+                <path d="M5 2h14v7h-7v7H5V2zm0 14h7l7 7H5v-7z" />
               </svg>
               <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 600, margin: 0 }}>
                 Import from Web
@@ -5061,7 +5061,7 @@ Find the component in the codebase and update the styles. If using Tailwind, con
         </div>
       )}
 
-      {/* Notes Sidebar - Professional right side panel */}
+      {/* Notes Sidebar - Clean design matching Properties Panel */}
       {showNotesPanel && (
       <div
         style={{
@@ -5069,284 +5069,242 @@ Find the component in the codebase and update the styles. If using Tailwind, con
           top: 56,
           right: 0,
           bottom: 0,
-          width: 380,
-          background: 'linear-gradient(180deg, #141414 0%, #0f0f0f 100%)',
+          width: 340,
+          background: '#111',
           borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
           zIndex: 9999,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '-20px 0 60px rgba(0, 0, 0, 0.5)',
-          animation: 'slideInFromRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+          boxShadow: '-8px 0 32px rgba(0, 0, 0, 0.4)',
         }}
       >
-        {/* Notes Header */}
+        {/* Fixed Header */}
         <div style={{
+          padding: '14px 16px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '20px 24px 16px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          background: '#111',
+          flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, rgba(168, 50, 72, 0.2) 0%, rgba(168, 50, 72, 0.1) 100%)',
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: 'rgba(139, 30, 43, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A83248" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B1E2B" strokeWidth="2">
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
               </svg>
             </div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em' }}>
-                Design Notes
-              </div>
-              <div style={{ fontSize: 11, color: '#52525b', marginTop: 2 }}>
-                Documenta le specifiche
-              </div>
-            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>Specifiche</span>
           </div>
           <button
             onClick={() => setShowNotesPanel(false)}
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              background: 'rgba(255, 255, 255, 0.03)',
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
               color: '#52525b',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all 0.15s',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-              e.currentTarget.style.color = '#a1a1aa';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-              e.currentTarget.style.color = '#52525b';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#a1a1aa'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#52525b'; }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
 
-        {/* Page Context */}
-        <div style={{
-          padding: '16px 24px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-            </svg>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#e4e4e7' }}>
-              {currentCanvasPage?.name || 'Nessuna pagina'}
+        {/* Scrollable Content */}
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          {/* Page Info Section */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+              Pagina Corrente
             </div>
-            <div style={{ fontSize: 11, color: '#52525b', marginTop: 2 }}>
-              {Object.keys(canvasElements).length - 1} elementi
-            </div>
-          </div>
-          <div style={{
-            padding: '4px 10px',
-            borderRadius: 20,
-            background: currentCanvasPage?.notes ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255, 255, 255, 0.04)',
-            fontSize: 11,
-            fontWeight: 500,
-            color: currentCanvasPage?.notes ? '#22c55e' : '#52525b',
-          }}>
-            {currentCanvasPage?.notes ? 'Documentato' : 'Vuoto'}
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div style={{
-          padding: '12px 24px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-          display: 'flex',
-          gap: 8,
-        }}>
-          {[
-            { icon: 'list', label: 'Lista', insert: '\n• ' },
-            { icon: 'check', label: 'Todo', insert: '\n☐ ' },
-            { icon: 'code', label: 'Code', insert: '\n```\n\n```' },
-            { icon: 'link', label: 'Link', insert: '[testo](url)' },
-          ].map((action) => (
-            <button
-              key={action.label}
-              onClick={() => {
-                if (currentCanvasPage) {
-                  const currentNotes = currentCanvasPage.notes || '';
-                  updatePageNotes(canvasCurrentPageId, currentNotes + action.insert);
-                }
-              }}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
+            <div style={{
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}>
+              <div style={{
+                width: 32,
+                height: 32,
                 borderRadius: 6,
-                border: '1px solid rgba(255, 255, 255, 0.06)',
-                background: 'rgba(255, 255, 255, 0.02)',
-                color: '#71717a',
-                fontSize: 11,
-                fontWeight: 500,
-                cursor: 'pointer',
+                background: currentCanvasPage?.notes ? 'rgba(139, 30, 43, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                border: `1px solid ${currentCanvasPage?.notes ? 'rgba(139, 30, 43, 0.3)' : 'rgba(255, 255, 255, 0.06)'}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
-                transition: 'all 0.15s',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={currentCanvasPage?.notes ? '#8B1E2B' : '#52525b'} strokeWidth="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                </svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {currentCanvasPage?.name || 'Nessuna pagina'}
+                </div>
+                <div style={{ fontSize: 10, color: '#52525b', marginTop: 2 }}>
+                  {Object.keys(canvasElements).length - 1} elementi
+                </div>
+              </div>
+              {currentCanvasPage?.notes && (
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B1E2B' }} />
+              )}
+            </div>
+          </div>
+
+          {/* Quick Insert Section */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+              Inserisci
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { label: '• Lista', insert: '\n• ' },
+                { label: '☐ Task', insert: '\n☐ ' },
+                { label: '## Titolo', insert: '\n## ' },
+                { label: '</> Code', insert: '\n```\n\n```' },
+                { label: '🔗 Link', insert: '\n[testo](url)' },
+                { label: '⚠️ Nota', insert: '\n⚠️ ' },
+              ].map((action) => (
+                <button
+                  key={action.label}
+                  onClick={() => {
+                    if (currentCanvasPage) {
+                      updatePageNotes(canvasCurrentPageId, (currentCanvasPage.notes || '') + action.insert);
+                    }
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#a1a1aa',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139, 30, 43, 0.15)'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'; e.currentTarget.style.color = '#a1a1aa'; }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Slash Command Hint */}
+          <div style={{
+            padding: '8px 16px 12px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <span style={{
+              padding: '3px 6px',
+              borderRadius: 4,
+              background: 'rgba(255, 255, 255, 0.06)',
+              fontSize: 10,
+              fontFamily: "'SF Mono', Monaco, monospace",
+              color: '#71717a',
+              letterSpacing: '-0.02em',
+            }}>/ai</span>
+            <span style={{ fontSize: 11, color: '#3f3f46' }}>
+              usa queste note per generare codice
+            </span>
+          </div>
+
+          {/* Editor Section */}
+          <div style={{ padding: '12px 16px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+              Note per "{currentCanvasPage?.name || 'questa pagina'}"
+            </div>
+            <textarea
+              value={currentCanvasPage?.notes || ''}
+              onChange={(e) => {
+                if (currentCanvasPage) {
+                  updatePageNotes(canvasCurrentPageId, e.target.value);
+                }
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
-                e.currentTarget.style.color = '#a1a1aa';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              placeholder={`## Interazioni
+• Click bottone: apre modale
+• Hover card: scale 1.02
+
+## Dati & API
+Endpoint: /api/items
+Metodo: GET
+Auth: Bearer token
+
+## Logica
+- Filtrare per categoria
+- Ordinare per data
+
+## Todo
+☐ Animazioni hover
+☐ Loading skeleton
+☐ Error handling`}
+              style={{
+                width: '100%',
+                minHeight: 300,
+                padding: 12,
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                borderRadius: 8,
+                color: '#e4e4e7',
+                fontSize: 12,
+                lineHeight: 1.6,
+                resize: 'vertical',
+                outline: 'none',
+                fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', monospace",
               }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                e.currentTarget.style.color = '#71717a';
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(139, 30, 43, 0.4)';
+                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(139, 30, 43, 0.1)';
+              }}
+              onBlur={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
-            >
-              {action.icon === 'list' && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-                  <circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/>
-                </svg>
-              )}
-              {action.icon === 'check' && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/>
-                </svg>
-              )}
-              {action.icon === 'code' && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-                </svg>
-              )}
-              {action.icon === 'link' && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                </svg>
-              )}
-              {action.label}
-            </button>
-          ))}
+            />
+          </div>
         </div>
 
-        {/* Notes Editor */}
-        <div style={{ flex: 1, padding: '20px 24px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <textarea
-            value={currentCanvasPage?.notes || ''}
-            onChange={(e) => {
-              if (currentCanvasPage) {
-                updatePageNotes(canvasCurrentPageId, e.target.value);
-              }
-            }}
-            placeholder={`Scrivi le specifiche per "${currentCanvasPage?.name || 'questa pagina'}"...
-
-Esempi di cosa documentare:
-
-• Comportamenti interattivi
-  - Cosa succede al click?
-  - Stati hover, focus, disabled
-
-• Dati dinamici
-  - Da dove arrivano i dati?
-  - API endpoints
-
-• Note per sviluppatori
-  - Componenti da usare
-  - Librerie richieste
-
-• Todo e reminder
-  ☐ Aggiungere animazioni
-  ☐ Testare responsive`}
-            style={{
-              flex: 1,
-              width: '100%',
-              padding: 20,
-              background: 'rgba(0, 0, 0, 0.3)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              borderRadius: 12,
-              color: '#e4e4e7',
-              fontSize: 13,
-              lineHeight: 1.7,
-              resize: 'none',
-              outline: 'none',
-              fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace",
-              letterSpacing: '-0.01em',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(168, 50, 72, 0.4)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(168, 50, 72, 0.1)';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          />
-        </div>
-
-        {/* Notes Footer */}
+        {/* Fixed Footer */}
         <div style={{
-          padding: '16px 24px',
+          padding: '10px 16px',
           borderTop: '1px solid rgba(255, 255, 255, 0.06)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           background: 'rgba(0, 0, 0, 0.2)',
+          flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#22c55e',
-              animation: 'pulse 2s infinite',
-            }} />
-            <span style={{ fontSize: 11, color: '#52525b' }}>
-              Salvataggio automatico attivo
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
+            <span style={{ fontSize: 10, color: '#52525b' }}>Auto-save</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 11, color: '#3f3f46' }}>
-              {(currentCanvasPage?.notes || '').split('\n').length} righe
-            </span>
-            <span style={{ fontSize: 11, color: '#3f3f46' }}>•</span>
-            <span style={{ fontSize: 11, color: '#3f3f46' }}>
-              {currentCanvasPage?.notes?.length || 0} caratteri
-            </span>
-          </div>
+          <span style={{ fontSize: 10, color: '#3f3f46' }}>
+            {(currentCanvasPage?.notes || '').split('\n').length} righe · {currentCanvasPage?.notes?.length || 0} car
+          </span>
         </div>
       </div>
       )}
