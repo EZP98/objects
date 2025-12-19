@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import * as LucideIcons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useCanvasStore } from '../../lib/canvas/canvasStore';
@@ -130,7 +131,8 @@ export const IconPicker: React.FC<IconPickerProps> = ({ onSelect, onClose, selec
   const inputBg = isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.04)';
   const footerBg = isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)';
 
-  return (
+  // Use portal to render at document.body level to avoid transform/positioning issues
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -437,7 +439,8 @@ export const IconPicker: React.FC<IconPickerProps> = ({ onSelect, onClose, selec
           </a>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
