@@ -6,12 +6,21 @@
  * Now includes responsive breakpoints, variants, and interactions.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useCallback, useMemo, createContext, useContext } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useCanvasStore } from '../../lib/canvas/canvasStore';
 import { CanvasElement, ElementStyles, THEME_COLORS } from '../../lib/canvas/types';
 import { InteractionsPanel } from './InteractionsPanel';
 import { BreakpointSelector } from './ResponsiveToolbar';
 import { useResponsiveStore } from '../../lib/canvas/responsive';
+
+// Theme context to avoid repeated store subscriptions
+type ThemeColors = typeof THEME_COLORS.dark;
+const ThemeContext = createContext<{ theme: 'dark' | 'light'; colors: ThemeColors }>({
+  theme: 'dark',
+  colors: THEME_COLORS.dark,
+});
+const useTheme = () => useContext(ThemeContext);
 
 // Global modifier key state for Cmd/Ctrl shortcuts
 let isModifierKeyHeld = false;
@@ -27,17 +36,15 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Section Component (theme-aware)
-function Section({ title, children, defaultOpen = true, actions }: {
+// Section Component (theme-aware) - memoized
+const Section = memo(function Section({ title, children, defaultOpen = true, actions }: {
   title: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
   actions?: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const canvasSettings = useCanvasStore(state => state.canvasSettings);
-  const theme = canvasSettings?.editorTheme || 'dark';
-  const colors = THEME_COLORS[theme];
+  const { colors } = useTheme();
 
   return (
     <div style={{ borderBottom: `1px solid ${colors.borderColor}` }}>
@@ -78,10 +85,10 @@ function Section({ title, children, defaultOpen = true, actions }: {
       {isOpen && <div style={{ padding: '0 12px 12px' }}>{children}</div>}
     </div>
   );
-}
+});
 
-// Input Field (theme-aware)
-function InputField({
+// Input Field (theme-aware) - memoized
+const InputField = memo(function InputField({
   label,
   value,
   onChange,
@@ -102,9 +109,7 @@ function InputField({
   step?: number;
   width?: number | string;
 }) {
-  const canvasSettings = useCanvasStore(state => state.canvasSettings);
-  const theme = canvasSettings?.editorTheme || 'dark';
-  const colors = THEME_COLORS[theme];
+  const { colors } = useTheme();
 
   // Use local state for editing - allows free typing without immediate validation
   const [localValue, setLocalValue] = React.useState(String(value));
@@ -189,10 +194,10 @@ function InputField({
       </div>
     </div>
   );
-}
+});
 
-// Select Field (theme-aware)
-function SelectField({
+// Select Field (theme-aware) - memoized
+const SelectField = memo(function SelectField({
   label,
   value,
   options,
@@ -205,9 +210,7 @@ function SelectField({
   onChange: (value: string) => void;
   width?: number | string;
 }) {
-  const canvasSettings = useCanvasStore(state => state.canvasSettings);
-  const theme = canvasSettings?.editorTheme || 'dark';
-  const colors = THEME_COLORS[theme];
+  const { colors } = useTheme();
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, width }}>
@@ -235,10 +238,10 @@ function SelectField({
       </select>
     </div>
   );
-}
+});
 
-// Toggle Button Group (theme-aware)
-function ToggleGroup({
+// Toggle Button Group (theme-aware) - memoized
+const ToggleGroup = memo(function ToggleGroup({
   options,
   value,
   onChange,
@@ -247,9 +250,7 @@ function ToggleGroup({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const canvasSettings = useCanvasStore(state => state.canvasSettings);
-  const theme = canvasSettings?.editorTheme || 'dark';
-  const colors = THEME_COLORS[theme];
+  const { colors } = useTheme();
 
   return (
     <div style={{ display: 'flex', gap: 2, background: colors.inputBg, borderRadius: 6, padding: 2 }}>
@@ -277,7 +278,7 @@ function ToggleGroup({
       ))}
     </div>
   );
-}
+});
 
 // Helper to convert hex to RGB
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -321,17 +322,15 @@ const COLOR_PRESETS = [
   '#eab308', '#f97316', '#ef4444', '#78716c', '#64748b', '#6b7280',
 ];
 
-// Advanced Color Input with picker (theme-aware)
-function ColorInput({ value, onChange, showOpacity = false, opacity = 1, onOpacityChange }: {
+// Advanced Color Input with picker (theme-aware) - memoized
+const ColorInput = memo(function ColorInput({ value, onChange, showOpacity = false, opacity = 1, onOpacityChange }: {
   value: string;
   onChange: (v: string) => void;
   showOpacity?: boolean;
   opacity?: number;
   onOpacityChange?: (v: number) => void;
 }) {
-  const canvasSettings = useCanvasStore(state => state.canvasSettings);
-  const theme = canvasSettings?.editorTheme || 'dark';
-  const colors = THEME_COLORS[theme];
+  const { colors } = useTheme();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputMode, setInputMode] = useState<'hex' | 'rgb' | 'hsl'>('hex');
@@ -659,7 +658,7 @@ function ColorInput({ value, onChange, showOpacity = false, opacity = 1, onOpaci
       )}
     </div>
   );
-}
+});
 
 // Icons
 const Icons = {
@@ -705,18 +704,38 @@ const BLEND_MODES = [
 ];
 
 export function PropertiesPanel() {
-  const { selectedElementIds, elements, updateElementStyles, resizeElement, moveElement, renameElement, canvasSettings, pages, currentPageId, updatePage, showPageSettings, setResponsiveStyles } = useCanvasStore();
+  // Use shallow selector to prevent unnecessary re-renders
+  const { selectedElementIds, elements, updateElementStyles, resizeElement, moveElement, renameElement, canvasSettings, pages, currentPageId, updatePage, showPageSettings, setResponsiveStyles } = useCanvasStore(
+    useShallow((state) => ({
+      selectedElementIds: state.selectedElementIds,
+      elements: state.elements,
+      updateElementStyles: state.updateElementStyles,
+      resizeElement: state.resizeElement,
+      moveElement: state.moveElement,
+      renameElement: state.renameElement,
+      canvasSettings: state.canvasSettings,
+      pages: state.pages,
+      currentPageId: state.currentPageId,
+      updatePage: state.updatePage,
+      showPageSettings: state.showPageSettings,
+      setResponsiveStyles: state.setResponsiveStyles,
+    }))
+  );
 
   // Get active breakpoint for responsive editing
   const activeBreakpointId = useResponsiveStore((state) => state.activeBreakpointId);
   const isDefaultBreakpoint = activeBreakpointId === 'desktop';
 
-  // Theme
+  // Theme - memoize to provide stable context value
   const theme = canvasSettings?.editorTheme || 'dark';
   const colors = THEME_COLORS[theme];
+  const themeValue = useMemo(() => ({ theme, colors }), [theme, colors]);
 
-  // Get selected element
-  const selectedElement = selectedElementIds.length === 1 ? elements[selectedElementIds[0]] : null;
+  // Get selected element - memoized
+  const selectedElement = useMemo(() =>
+    selectedElementIds.length === 1 ? elements[selectedElementIds[0]] : null,
+    [selectedElementIds, elements]
+  );
 
   // Get current page for page settings
   const currentPage = pages[currentPageId];
@@ -724,6 +743,7 @@ export function PropertiesPanel() {
   // Show page settings when explicitly requested (clicked page header) and no element is selected
   if (showPageSettings && !selectedElement && currentPage) {
     return (
+      <ThemeContext.Provider value={themeValue}>
       <div
         style={{
           width: '100%',
@@ -862,11 +882,13 @@ export function PropertiesPanel() {
           </div>
         </Section>
       </div>
+      </ThemeContext.Provider>
     );
   }
 
   if (!selectedElement) {
     return (
+      <ThemeContext.Provider value={themeValue}>
       <div
         style={{
           width: '100%',
@@ -906,6 +928,7 @@ export function PropertiesPanel() {
           </div>
         </div>
       </div>
+      </ThemeContext.Provider>
     );
   }
 
@@ -946,6 +969,7 @@ export function PropertiesPanel() {
   };
 
   return (
+    <ThemeContext.Provider value={themeValue}>
     <div
       style={{
         width: '100%',
@@ -3032,5 +3056,6 @@ export function PropertiesPanel() {
         }}
       />
     </div>
+    </ThemeContext.Provider>
   );
 }
