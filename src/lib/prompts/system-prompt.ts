@@ -1911,59 +1911,42 @@ export interface DesignPromptOptions {
 }
 
 export function getDesignPromptWithIntent(userMessage: string, options?: { stylePresetId?: string; selectedPalette?: TopicPalette }): string {
-  // Extract design intent from user message
   const intent = extractDesignIntent(userMessage);
 
-  // If a palette was explicitly selected, use it
   if (options?.selectedPalette) {
-    intent.palette = options.selectedPalette;
     intent.suggestedColors = options.selectedPalette.colors;
   }
 
-  // BUILD PROMPT WITH TOPIC CONTEXT FIRST (most important)
-  let prompt = '';
-
-  // 1. TOPIC HEADER - This is the FIRST thing the AI sees
-  const topicName = intent.topic.charAt(0).toUpperCase() + intent.topic.slice(1);
   const colors = intent.suggestedColors;
+  const lang = intent.language === 'it' ? 'ITALIANO' : 'English';
 
-  prompt += `════════════════════════════════════════════════════════════════════════════════
-🎯 QUESTO DESIGN È PER: ${topicName.toUpperCase()}
-════════════════════════════════════════════════════════════════════════════════
+  // ULTRA-SHORT PROMPT - Topic context is EVERYTHING
+  return `OUTPUT JSON ONLY. NO TEXT BEFORE OR AFTER.
 
-LINGUA: ${intent.language === 'it' ? 'ITALIANO (obbligatorio)' : 'English'}
+🎯 TOPIC: ${intent.topic.toUpperCase()}
+🌍 LANGUAGE: ${lang} (MANDATORY - all text must be in ${lang})
 
-COLORI DA USARE (OBBLIGATORI):
+COLORS TO USE:
 - Background: ${colors.background}
 - Primary: ${colors.primary}
-- Secondary: ${colors.secondary}
 - Accent: ${colors.accent}
 - Text: ${colors.text}
 
-CONTENUTI SPECIFICI PER ${topicName.toUpperCase()}:
-- NON usare testo generico come "Build Something Beautiful"
-- USA testo italiano specifico per ${intent.topic}
-- Mood: ${intent.mood.join(', ')}
+⛔ FORBIDDEN TEXT (will be rejected):
+"Build Something", "Design That Inspires", "Everything You Need", "Start Your Journey", "Why Choose Us"
 
+✅ USE TOPIC-SPECIFIC TEXT:
+${intent.topic === 'wine' ? '- "Scopri i Nostri Vini Pregiati", "Tradizione dal 1920", "La Cantina"' : ''}
+${intent.topic === 'restaurant' ? '- "Un Viaggio nei Sapori", "Cucina Autentica", "Prenota un Tavolo"' : ''}
+${intent.topic === 'fitness' ? '- "Trasforma il Tuo Corpo", "Allenati con Noi", "Inizia Oggi"' : ''}
+${intent.topic === 'tech' ? '- "Automatizza il Business", "Soluzioni Innovative", "Prova Gratis"' : ''}
+
+JSON FORMAT:
+{"name":"SectionName","type":"section","styles":{"display":"flex","flexDirection":"column","alignItems":"center","padding":80,"gap":32,"backgroundColor":"${colors.background}"},"children":[{"name":"Title","type":"text","content":"TOPIC-SPECIFIC TEXT HERE","styles":{"fontSize":56,"fontWeight":700,"color":"${colors.text}"}}]}
+
+ELEMENT TYPES: section, frame, row, text, button, image
+SIZING: Use padding (number), gap (number), fontSize (number)
 `;
-
-  // 2. If palette explicitly selected, reinforce it
-  if (options?.selectedPalette) {
-    prompt += `PALETTE SELEZIONATA: ${options.selectedPalette.name}
-Mood: ${options.selectedPalette.mood.join(', ')}
-
-`;
-  }
-
-  // 3. Add base design rules
-  prompt += DESIGN_MODE_PROMPT;
-
-  // 4. Add style preset if specified
-  if (options?.stylePresetId) {
-    prompt += '\n\n' + formatStylePresetForAI(options.stylePresetId);
-  }
-
-  return prompt;
 }
 
 // Export types for external use
