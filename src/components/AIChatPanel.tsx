@@ -957,12 +957,79 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
       await takeSnapshot(assistantMessage.id);
 
       // Handle response based on output mode
-      if (outputMode === 'design') {
-        // DESIGN MODE: AI generates React code - just show it
-        // The code is already displayed during streaming
-        console.log('[AIChatPanel] Design mode - React code generated');
-        // Content is already shown, nothing else to do
-      } else if (outputMode === 'smart') {
+      if (outputMode === 'design' || outputMode === 'smart') {
+        // DESIGN/SMART MODE: AI generates React/Tailwind → Canvas elements
+        console.log(`[AIChatPanel] ${outputMode} mode - parsing React code for canvas`);
+
+        try {
+          // Extract JSX code blocks from response
+          const codeBlocks = extractJSXFromResponse(fullContent);
+          console.log('[AIChatPanel] Found', codeBlocks.length, 'JSX code blocks');
+
+          if (codeBlocks.length === 0) {
+            // Fallback: try to find any code block
+            const codeMatch = fullContent.match(/```(?:tsx?|jsx?)\n([\s\S]*?)```/);
+            if (codeMatch) {
+              codeBlocks.push(codeMatch[1]);
+            }
+          }
+
+          if (codeBlocks.length === 0) {
+            // No code found - just show the response
+            console.log('[AIChatPanel] No code blocks found');
+            return;
+          }
+
+          let allElements: any[] = [];
+          const elementNames: string[] = [];
+
+          // Parse each code block to canvas elements
+          for (const codeBlock of codeBlocks) {
+            const elements = parseJSXToCanvas(codeBlock);
+            console.log('[AIChatPanel] Parsed', elements.length, 'elements from code block');
+            allElements = allElements.concat(elements);
+          }
+
+          if (allElements.length === 0) {
+            console.log('[AIChatPanel] No canvas elements extracted');
+            return;
+          }
+
+          // Add elements to canvas
+          const store = useCanvasStore.getState();
+          let pageId: string | undefined;
+          let parentId: string | undefined;
+
+          if (createAsNewPage) {
+            const pageName = (allElements[0]?.name as string) || 'AI Generated';
+            pageId = store.addPage();
+            if (pageId) {
+              store.renamePage(pageId, pageName);
+              const page = store.pages[pageId];
+              if (page) {
+                store.renameElement(page.rootElementId, pageName);
+                parentId = page.rootElementId;
+              }
+              store.setCurrentPage(pageId);
+            }
+            setCreateAsNewPage(false);
+          }
+
+          const ids = addElementsFromAI(allElements, parentId);
+          allElements.forEach(e => elementNames.push(e.name || e.type || 'element'));
+
+          // Update message with success
+          const pageInfo = pageId ? ' (nuova pagina)' : '';
+          updateMessage(
+            assistantMessage.id,
+            `✅ Creati ${ids.length} elementi sul canvas${pageInfo}\n\n${elementNames.slice(0, 8).join(', ')}${elementNames.length > 8 ? '...' : ''}`
+          );
+        } catch (err) {
+          console.error('[AIChatPanel] Error parsing React to canvas:', err);
+          // Content is already shown in chat, so no need to update
+        }
+      } else if (false) {
+        // Legacy smart mode block - keeping structure for now
         // SMART MODE: AI generates React/Tailwind → Live Preview + Canvas elements
         console.log('[AIChatPanel] Smart mode - parsing React code for preview and canvas');
 
