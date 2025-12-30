@@ -375,290 +375,51 @@ export type AnimationPreset = keyof typeof ANIMATION_PRESETS;
  *
  * THINK FIRST APPROACH: Like v0.dev, analyze request before generating
  */
-export const DESIGN_MODE_PROMPT = `You are a world-class Italian designer. Output ONLY valid JSON.
+export const DESIGN_MODE_PROMPT = `You are a world-class designer. Generate React + Tailwind code.
 
-═══════════════════════════════════════════════════════════════
-CRITICAL: TOPIC-SPECIFIC CONTENT (NOT GENERIC)
-═══════════════════════════════════════════════════════════════
+OUTPUT FORMAT:
+\`\`\`tsx
+// Your React component here
+\`\`\`
 
-FORBIDDEN GENERIC TEXT (will be rejected):
-- "Build Something Beautiful/Extraordinary"
-- "Design That Inspires Action"
-- "Everything You Need"
-- "Start Your Journey"
-- "Welcome to Our Site"
-- Any English text when user writes in Italian
+RULES:
+1. Output ONLY a code block with TSX - no explanations before or after
+2. Use Tailwind CSS classes - NEVER inline styles
+3. Create beautiful, production-ready UI
+4. Content must be specific to the user's topic (not generic placeholders)
+5. Match the language of the user (Italian → Italian content)
 
-YOU MUST create content specific to the user's topic:
-- Wine/Cantina → "Scopri i Nostri Vini Pregiati", "Tradizione e Passione dal 1920"
-- Fitness → "Trasforma il Tuo Corpo", "Allenati con i Migliori"
-- Ristorante → "Un Viaggio nei Sapori", "Cucina Autentica Italiana"
-- Tech/SaaS → "Automatizza il Tuo Business", "La Tecnologia che Semplifica"
+TOPIC-SPECIFIC CONTENT:
+- Wine/Cantina → "Scopri i Nostri Vini Pregiati", burgundy colors (#722F37)
+- Fitness → "Trasforma il Tuo Corpo", energetic colors (#FF6B35)
+- Ristorante → "Un Viaggio nei Sapori", warm colors (#D4A574)
+- Tech/SaaS → "Soluzioni Innovative", modern dark (#0D0D0D)
 
-COLORS must match topic:
-- Wine → #722F37 (burgundy), #C9A227 (gold), #F5F5DC (cream)
-- Fitness → #FF6B35 (orange), #2EC4B6 (teal), #011627 (dark)
-- Ristorante → #D4A574 (terracotta), #8B4513 (brown), #FFF8DC (cream)
-- Tech → #6366F1 (indigo), #0D0D0D (black), #FFFFFF (white)
+FORBIDDEN:
+- Generic text like "Welcome", "Build Something", "Get Started"
+- Placeholder text like "Lorem ipsum"
+- English text when user writes in Italian
 
-IMAGES must be topic-relevant Unsplash URLs:
-- Wine: https://images.unsplash.com/photo-1506377247377-2a5b3417ebb?w=1200 (wine cellar)
-- Fitness: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200 (gym)
-- Food: https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200 (restaurant)
-
-═══════════════════════════════════════════════════════════════
-LAYOUT RULES
-═══════════════════════════════════════════════════════════════
-
-FORBIDDEN (will break the design):
-- position property (no x, y, absolute, fixed)
-- left, right, top, bottom properties
-- width/height in style (use sizing instead)
-
-REQUIRED:
-- Use sizing.width/height: "fill" | "fit" | "fixed"
-- Use layout.direction: "column" | "row"
-- Use layout.gap, layout.padding for spacing
-
-═══════════════════════════════════════════════════════════════
-SEMANTIC LAYOUT SYSTEM (FLEXBOX-BASED, LIKE FRAMER/FIGMA)
-═══════════════════════════════════════════════════════════════
-
-NODE STRUCTURE:
-{
-  "type": "section|frame|card|row|text|button|image|icon",
-  "name": "Element Name",
-  "content": "Text content (for text/button)",
-  "src": "image URL (for image)",
-  "iconName": "Lucide icon name (for icon)",
-
-  "sizing": {
-    "width": "fill|fit|fixed",      // fill=100%, fit=content, fixed=px
-    "height": "fill|fit|fixed",
-    "fixedWidth": 200,              // only when width="fixed"
-    "fixedHeight": 100              // only when height="fixed"
-  },
-
-  "layout": {                        // only for containers
-    "direction": "column|row",
-    "gap": 16,
-    "padding": 24,
-    "paddingTop": 60,               // override specific sides
-    "align": "center|start|end|stretch"
-  },
-
-  "style": {
-    "background": "#0a0a0a",
-    "color": "#ffffff",
-    "fontSize": 48,
-    "fontWeight": 700,
-    "borderRadius": 16,
-    "border": "1px solid #333"
-  },
-
-  "animation": {
-    "preset": "fadeIn|slideUp|slideDown|slideLeft|scaleIn|bounce",
-    "delay": 0.2,
-    "duration": 0.5
-  },
-
-  "children": [...]                  // nested elements
+EXAMPLE OUTPUT:
+\`\`\`tsx
+export default function Hero() {
+  return (
+    <section className="min-h-screen bg-[#722F37] flex flex-col items-center justify-center px-8">
+      <h1 className="text-6xl font-bold text-white mb-6">
+        Scopri i Nostri Vini Pregiati
+      </h1>
+      <p className="text-xl text-white/80 max-w-2xl text-center mb-8">
+        Tradizione e passione dal 1920
+      </p>
+      <button className="px-8 py-4 bg-[#C9A227] text-white rounded-full font-semibold hover:bg-[#B8911F] transition">
+        Esplora la Cantina
+      </button>
+    </section>
+  );
 }
+\`\`\`
 
-═══════════════════════════════════════════════════════════════
-SIZING MODES (FRAMER-STYLE)
-═══════════════════════════════════════════════════════════════
-
-• fill  → Takes 100% of parent / grows to fill available space
-• fit   → Shrinks to content size (hugs content)
-• fixed → Exact pixel size (uses fixedWidth/fixedHeight)
-
-DEFAULT SIZING BY TYPE:
-- section:   width=fill, height=fit (full-width, content-height)
-- frame:     width=fill, height=fit
-- row:       width=fill, height=fit
-- card:      width=fill, height=fit
-- text:      width=fit, height=fit
-- button:    width=fit, height=fit
-- image:     width=fixed, height=fixed (MUST specify dimensions)
-- icon:      width=fixed, height=fixed (fixedWidth/Height: 24-48)
-
-═══════════════════════════════════════════════════════════════
-ROW CHILDREN - AUTOMATIC FILL BEHAVIOR
-═══════════════════════════════════════════════════════════════
-
-When inside a ROW (direction: "row"), children should use width="fill"
-to distribute space evenly. This creates equal columns automatically.
-
-EXAMPLE - Two equal columns:
-{
-  "type": "row",
-  "layout": {"direction": "row", "gap": 24},
-  "children": [
-    {"type": "frame", "sizing": {"width": "fill"}, ...},
-    {"type": "frame", "sizing": {"width": "fill"}, ...}
-  ]
-}
-
-Both children get 50% width automatically.
-
-═══════════════════════════════════════════════════════════════
-ELEMENT TYPES
-═══════════════════════════════════════════════════════════════
-
-• section  - Full-width page section (header, hero, features, footer)
-• frame    - Generic container
-• card     - Styled container with background/border/shadow
-• row      - Horizontal flex container
-• text     - Text content (title, subtitle, paragraph, label)
-• button   - Clickable button
-• image    - Image element (use src property)
-• icon     - Lucide icon (use iconName: "ArrowRight", "Star", etc.)
-• input    - Form input (use placeholder property)
-• link     - Anchor link (use href property)
-
-═══════════════════════════════════════════════════════════════
-EXAMPLE STRUCTURE (ADAPT CONTENT TO USER'S TOPIC)
-═══════════════════════════════════════════════════════════════
-
-This shows the JSON STRUCTURE. Replace [TOPIC_HEADLINE], [TOPIC_SUBTITLE],
-[TOPIC_COLOR], etc. with content from your design_thinking.
-
-{
-  "elements": [
-    {
-      "type": "frame",
-      "name": "App",
-      "sizing": {"width": "fill", "height": "fill"},
-      "layout": {"direction": "column", "gap": 0},
-      "style": {"background": "[TOPIC_BG_COLOR]"},
-      "children": [
-        {
-          "type": "section",
-          "name": "Hero",
-          "sizing": {"width": "fill", "height": "fit"},
-          "layout": {"direction": "column", "gap": 16, "padding": 64, "align": "center"},
-          "animation": {"preset": "fadeIn"},
-          "children": [
-            {
-              "type": "text",
-              "name": "Headline",
-              "content": "[TOPIC_HEADLINE - from design_thinking]",
-              "sizing": {"width": "fit", "height": "fit"},
-              "style": {"fontSize": 48, "color": "[TOPIC_TEXT_COLOR]", "fontWeight": 700}
-            },
-            {
-              "type": "text",
-              "name": "Subheadline",
-              "content": "[TOPIC_SUBHEADLINE - specific to topic]",
-              "sizing": {"width": "fit", "height": "fit"},
-              "style": {"fontSize": 20, "color": "[TOPIC_MUTED_COLOR]"}
-            },
-            {
-              "type": "button",
-              "name": "CTA",
-              "content": "[TOPIC_CTA_TEXT]",
-              "sizing": {"width": "fit", "height": "fit"},
-              "style": {"background": "[TOPIC_PRIMARY_COLOR]", "color": "#FFFFFF", "borderRadius": 12, "paddingX": 32, "paddingY": 16}
-            }
-          ]
-        },
-        {
-          "type": "section",
-          "name": "Features",
-          "sizing": {"width": "fill", "height": "fit"},
-          "layout": {"direction": "column", "gap": 32, "padding": 64},
-          "children": [
-            {
-              "type": "row",
-              "name": "Feature Grid",
-              "layout": {"direction": "row", "gap": 24},
-              "children": [
-                {
-                  "type": "card",
-                  "sizing": {"width": "fill"},
-                  "layout": {"direction": "column", "gap": 12, "padding": 24},
-                  "children": [
-                    {"type": "text", "content": "[FEATURE_1_TITLE]", "style": {"fontSize": 20, "fontWeight": 600}},
-                    {"type": "text", "content": "[FEATURE_1_DESC]", "style": {"fontSize": 16, "color": "[MUTED]"}}
-                  ]
-                },
-                {
-                  "type": "card",
-                  "sizing": {"width": "fill"},
-                  "layout": {"direction": "column", "gap": 12, "padding": 24},
-                  "children": [
-                    {"type": "text", "content": "[FEATURE_2_TITLE]", "style": {"fontSize": 20, "fontWeight": 600}},
-                    {"type": "text", "content": "[FEATURE_2_DESC]", "style": {"fontSize": 16, "color": "[MUTED]"}}
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-REMEMBER: Replace ALL bracketed [PLACEHOLDERS] with actual content from your design_thinking!
-
-═══════════════════════════════════════════════════════════════
-STYLE GUIDELINES
-═══════════════════════════════════════════════════════════════
-
-SECTIONS:
-- padding: 60-100, gap: 24-48
-- Use paddingTop for extra top spacing
-
-CARDS:
-- borderRadius: 12-20
-- border: "1px solid #E8E4DE" or similar subtle border
-- Use box-shadow for elevation
-
-TEXT:
-- Title: fontSize 28-48, fontWeight 600-700
-- Subtitle: fontSize 16-20, muted color
-- Body: fontSize 14-16
-
-BUTTONS:
-- padding: 12-20, borderRadius: 8-50
-- Primary: solid background
-- Secondary: border only, transparent background
-
-IMAGES:
-- Always specify fixedWidth and fixedHeight
-- Use borderRadius for rounded images
-
-ANIMATIONS:
-- Stagger delays: 0, 0.1, 0.2, 0.3...
-- Use slideUp for vertical reveals
-- Use slideLeft for horizontal cards
-- Use scaleIn for modal/card entrances
-
-═══════════════════════════════════════════════════════════════
-⚠️ COMMON MISTAKES TO AVOID
-═══════════════════════════════════════════════════════════════
-
-❌ WRONG - Using position coordinates:
-{"position": {"x": 100, "y": 50}}
-
-✅ CORRECT - Using layout:
-{"layout": {"direction": "column", "gap": 16, "padding": 24}}
-
-❌ WRONG - Using CSS position:
-{"style": {"position": "absolute", "top": "50px"}}
-
-✅ CORRECT - Using sizing:
-{"sizing": {"width": "fill", "height": "fit"}}
-
-❌ WRONG - Using width/height in style:
-{"style": {"width": "200px", "height": "100px"}}
-
-✅ CORRECT - Using fixed sizing:
-{"sizing": {"width": "fixed", "height": "fixed", "fixedWidth": 200, "fixedHeight": 100}}
-
-GENERATE 2-4 SECTIONS with 5-15 elements total.`;
+Generate beautiful, complete React components with Tailwind CSS.`;
 
 /**
  * Format a compact design scheme for AI injection
@@ -1918,35 +1679,41 @@ export function getDesignPromptWithIntent(userMessage: string, options?: { style
   }
 
   const colors = intent.suggestedColors;
-  const lang = intent.language === 'it' ? 'ITALIANO' : 'English';
+  const lang = intent.language === 'it' ? 'Italian' : 'English';
 
-  // ULTRA-SHORT PROMPT - Topic context is EVERYTHING
-  return `OUTPUT JSON ONLY. NO TEXT BEFORE OR AFTER.
+  return `You are a world-class designer. Generate React + Tailwind code.
 
-🎯 TOPIC: ${intent.topic.toUpperCase()}
-🌍 LANGUAGE: ${lang} (MANDATORY - all text must be in ${lang})
+TOPIC: ${intent.topic.toUpperCase()}
+LANGUAGE: ${lang} - ALL text content must be in ${lang}
 
-COLORS TO USE:
+COLORS:
 - Background: ${colors.background}
 - Primary: ${colors.primary}
 - Accent: ${colors.accent}
 - Text: ${colors.text}
 
-⛔ FORBIDDEN TEXT (will be rejected):
-"Build Something", "Design That Inspires", "Everything You Need", "Start Your Journey", "Why Choose Us"
+OUTPUT FORMAT - Return ONLY a code block:
+\`\`\`tsx
+export default function Component() {
+  return (
+    // Your JSX here with Tailwind classes
+  );
+}
+\`\`\`
 
-✅ USE TOPIC-SPECIFIC TEXT:
-${intent.topic === 'wine' ? '- "Scopri i Nostri Vini Pregiati", "Tradizione dal 1920", "La Cantina"' : ''}
-${intent.topic === 'restaurant' ? '- "Un Viaggio nei Sapori", "Cucina Autentica", "Prenota un Tavolo"' : ''}
-${intent.topic === 'fitness' ? '- "Trasforma il Tuo Corpo", "Allenati con Noi", "Inizia Oggi"' : ''}
-${intent.topic === 'tech' ? '- "Automatizza il Business", "Soluzioni Innovative", "Prova Gratis"' : ''}
+RULES:
+1. Use Tailwind CSS - NO inline styles
+2. Use the colors above with bg-[${colors.background}], text-[${colors.text}], etc.
+3. Content must be in ${lang} and specific to "${intent.topic}"
+4. Create beautiful, production-ready UI
+5. NO generic text like "Welcome", "Get Started", "Lorem ipsum"
 
-JSON FORMAT:
-{"name":"SectionName","type":"section","styles":{"display":"flex","flexDirection":"column","alignItems":"center","padding":80,"gap":32,"backgroundColor":"${colors.background}"},"children":[{"name":"Title","type":"text","content":"TOPIC-SPECIFIC TEXT HERE","styles":{"fontSize":56,"fontWeight":700,"color":"${colors.text}"}}]}
+${intent.topic === 'wine' ? 'Wine examples: "Scopri i Nostri Vini Pregiati", "Tradizione dal 1920"' : ''}
+${intent.topic === 'restaurant' ? 'Restaurant examples: "Un Viaggio nei Sapori", "Cucina Autentica"' : ''}
+${intent.topic === 'fitness' ? 'Fitness examples: "Trasforma il Tuo Corpo", "Allenati con Noi"' : ''}
+${intent.topic === 'tech' ? 'Tech examples: "Soluzioni Innovative", "Automatizza il Business"' : ''}
 
-ELEMENT TYPES: section, frame, row, text, button, image
-SIZING: Use padding (number), gap (number), fontSize (number)
-`;
+Generate a complete, beautiful React component.`;
 }
 
 // Export types for external use

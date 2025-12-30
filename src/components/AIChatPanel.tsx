@@ -942,37 +942,8 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
                 if (parsed.text) {
                   fullContent += parsed.text;
 
-                  // In design mode, try incremental parsing periodically
-                  if (outputMode === 'design') {
-                    const now = Date.now();
-                    // Parse when we see a closing brace (likely end of element) or periodically
-                    if (parsed.text.includes('}') || now - lastParseAttempt > PARSE_INTERVAL) {
-                      lastParseAttempt = now;
-
-                      // Prepend the JSON prefix since Edge Function prefills '{"elements":['
-                      // The AI response starts with first element: {"name":"Hero",...
-                      // NOT with {"elements":[...
-                      const contentWithPrefix = fullContent.startsWith('{"elements"')
-                        ? fullContent
-                        : '{"elements":[' + fullContent;
-
-                      // Try to extract complete sections from current content
-                      const extracted = extractSectionsFromBrokenJSON(contentWithPrefix);
-                      if (extracted.length > 0) {
-                        addElementsIncrementally(extracted);
-                      }
-                    }
-
-                    // Show clean progress message (no raw JSON)
-                    if (totalElementsAdded === 0) {
-                      // Show progress indicator based on content length
-                      const chars = fullContent.length;
-                      const dots = '.'.repeat((Math.floor(chars / 100) % 4) + 1);
-                      updateMessage(assistantMessage.id, `⏳ Generando design${dots}\n\n_${Math.round(chars / 100) * 100}+ caratteri ricevuti_`);
-                    }
-                  } else {
-                    updateMessage(assistantMessage.id, fullContent);
-                  }
+                  // Show content directly for all modes
+                  updateMessage(assistantMessage.id, fullContent);
                 }
               } catch (e) {
                 // Skip invalid JSON
@@ -987,125 +958,10 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
 
       // Handle response based on output mode
       if (outputMode === 'design') {
-        // DESIGN MODE: Final parsing for any remaining elements
-        console.log('[AIChatPanel] Design mode - final parsing, already added:', totalElementsAdded);
-
-        try {
-          // The Edge Function prefills '{"elements":[' so we need to add it back
-          // The AI response starts with first element: {"name":"Hero",...
-          let jsonStr = fullContent.trim();
-          if (!jsonStr.startsWith('{"elements"')) {
-            jsonStr = '{"elements":[' + jsonStr;
-            console.log('[AIChatPanel] Prepended JSON prefix to response');
-          }
-
-          // Try to extract JSON from response (check jsonStr, not fullContent)
-          const jsonMatch = jsonStr.match(/```json\s*([\s\S]*?)```/);
-          if (jsonMatch) {
-            jsonStr = jsonMatch[1].trim();
-          } else {
-            // Find raw JSON object (from first { to last })
-            const jsonStartIdx = fullContent.indexOf('{');
-            const jsonEndIdx = fullContent.lastIndexOf('}');
-            if (jsonStartIdx !== -1 && jsonEndIdx !== -1 && jsonEndIdx > jsonStartIdx) {
-              jsonStr = fullContent.slice(jsonStartIdx, jsonEndIdx + 1);
-            } else if (jsonStartIdx !== -1) {
-              jsonStr = fullContent.slice(jsonStartIdx);
-            } else if (totalElementsAdded > 0) {
-              // No JSON found but we already added elements during streaming - success!
-              console.log('[AIChatPanel] No final JSON but streaming added elements successfully');
-              if (createAsNewPage) setCreateAsNewPage(false);
-              const pageInfo = streamingPageId ? `\n📄 Nuova pagina creata` : '';
-              updateMessage(
-                assistantMessage.id,
-                `✅ Creati ${totalElementsAdded} elementi sul canvas:${pageInfo}\n${addedElementNames.join(', ')}`
-              );
-              return;
-            } else {
-              // No JSON found at all - AI returned plain text
-              console.warn('[AIChatPanel] No JSON found in response, AI returned plain text');
-              updateMessage(
-                assistantMessage.id,
-                `💬 ${fullContent.substring(0, 500)}${fullContent.length > 500 ? '...' : ''}`
-              );
-              return;
-            }
-          }
-
-          // Use robust parser with multiple fallback strategies
-          const parseResult = parseDesignJSON(jsonStr);
-
-          // Add any elements not yet added during streaming
-          const newElements = parseResult.elements.filter((e: Record<string, unknown>) => {
-            const hash = hashElement(e);
-            return !addedElementHashes.has(hash) && (e.type || e.name);
-          });
-
-          if (newElements.length > 0) {
-            console.log('[AIChatPanel] Adding', newElements.length, 'remaining elements from final parse');
-
-            // If streaming didn't create a page but we need one
-            if (createAsNewPage && !streamingPageId) {
-              const pageName = (newElements[0] as Record<string, unknown>)?.name as string || 'New Page';
-              const result = processAIDesignResponse({
-                createNewPage: true,
-                pageName,
-                elements: newElements as any,
-              });
-              totalElementsAdded += result.elementIds.length;
-              newElements.forEach((e: Record<string, unknown>) => addedElementNames.push((e.name as string) || (e.type as string)));
-              streamingPageId = result.pageId;
-            } else {
-              // Add to existing page/context
-              const ids = addElementsFromAI(newElements as any, streamingParentId);
-              totalElementsAdded += ids.length;
-              newElements.forEach((e: Record<string, unknown>) => addedElementNames.push((e.name as string) || (e.type as string)));
-            }
-          }
-
-          if (totalElementsAdded === 0 && parseResult.elements.length === 0) {
-            console.warn('[AIChatPanel] No valid elements extracted');
-            updateMessage(
-              assistantMessage.id,
-              `⚠️ Nessun elemento valido trovato. Riprova con una richiesta più semplice.`
-            );
-            return;
-          }
-
-          // Reset the toggle after use
-          if (createAsNewPage) {
-            setCreateAsNewPage(false);
-          }
-
-          // Update message to show success
-          const pageInfo = streamingPageId ? `\n📄 Nuova pagina creata` : '';
-          updateMessage(
-            assistantMessage.id,
-            `✅ Creati ${totalElementsAdded} elementi sul canvas:${pageInfo}\n${addedElementNames.join(', ')}`
-          );
-        } catch (parseErr) {
-          // Even on error, if we added elements during streaming, that's partial success
-          if (totalElementsAdded > 0) {
-            console.log('[AIChatPanel] Parse error but streaming added', totalElementsAdded, 'elements');
-            if (createAsNewPage) setCreateAsNewPage(false);
-            const pageInfo = streamingPageId ? `\n📄 Nuova pagina creata` : '';
-            updateMessage(
-              assistantMessage.id,
-              `⚠️ Generazione parziale: ${totalElementsAdded} elementi aggiunti${pageInfo}\n${addedElementNames.join(', ')}\n\n(La generazione potrebbe essere stata interrotta)`
-            );
-            return;
-          }
-
-          console.error('[AIChatPanel] Failed to parse design JSON:', parseErr);
-          console.error('[AIChatPanel] Raw response (first 1000 chars):', fullContent.substring(0, 1000));
-
-          // Show error with preview of what AI returned
-          const preview = fullContent.substring(0, 300).replace(/\n/g, ' ');
-          updateMessage(
-            assistantMessage.id,
-            `⚠️ Errore parsing JSON: ${parseErr instanceof Error ? parseErr.message : 'Unknown error'}\n\n📝 Risposta AI:\n\`\`\`\n${preview}...\n\`\`\`\n\nRiprova con una richiesta più semplice.`
-          );
-        }
+        // DESIGN MODE: AI generates React code - just show it
+        // The code is already displayed during streaming
+        console.log('[AIChatPanel] Design mode - React code generated');
+        // Content is already shown, nothing else to do
       } else if (outputMode === 'smart') {
         // SMART MODE: AI generates React/Tailwind → Live Preview + Canvas elements
         console.log('[AIChatPanel] Smart mode - parsing React code for preview and canvas');
