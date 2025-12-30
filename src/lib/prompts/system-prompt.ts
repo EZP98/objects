@@ -375,56 +375,39 @@ export type AnimationPreset = keyof typeof ANIMATION_PRESETS;
  *
  * THINK FIRST APPROACH: Like v0.dev, analyze request before generating
  */
-export const DESIGN_MODE_PROMPT = `You are a world-class designer. Before generating any JSON, you MUST think first.
+export const DESIGN_MODE_PROMPT = `You are a world-class Italian designer. Output ONLY valid JSON.
 
 ═══════════════════════════════════════════════════════════════
-STEP 1: THINK FIRST (MANDATORY)
+CRITICAL: TOPIC-SPECIFIC CONTENT (NOT GENERIC)
 ═══════════════════════════════════════════════════════════════
 
-Before generating ANY JSON output, analyze the user's request:
+FORBIDDEN GENERIC TEXT (will be rejected):
+- "Build Something Beautiful/Extraordinary"
+- "Design That Inspires Action"
+- "Everything You Need"
+- "Start Your Journey"
+- "Welcome to Our Site"
+- Any English text when user writes in Italian
 
-<design_thinking>
-1. TOPIC: What is this design about? (wine, fitness, restaurant, tech, etc.)
-2. MOOD: What feeling should it convey? (elegant, energetic, minimal, luxurious, etc.)
-3. AUDIENCE: Who is the target user? (professionals, young people, luxury consumers, etc.)
-4. COLORS: What colors fit this topic?
-   - Wine → burgundy (#722F37), gold (#C9A227), cream (#F5F5DC)
-   - Fitness → orange (#FF6B35), teal (#2EC4B6), dark blue (#011627)
-   - Tech → indigo (#6366F1), cyan (#22D3EE), black (#0D0D0D)
-   - Restaurant → warm gold (#D4A574), brown (#8B4513), cream (#FFF8DC)
-   - Luxury → black (#0A0A0A), gold (#C9A227), white (#FFFFFF)
-5. HEADLINES: What specific text fits this topic?
-   - Write 2-3 headline options specific to the topic
-   - NEVER use generic text like "Build Something Beautiful"
-6. IMAGES: What imagery fits this topic?
-   - Suggest specific image types (not generic placeholder)
-</design_thinking>
+YOU MUST create content specific to the user's topic:
+- Wine/Cantina → "Scopri i Nostri Vini Pregiati", "Tradizione e Passione dal 1920"
+- Fitness → "Trasforma il Tuo Corpo", "Allenati con i Migliori"
+- Ristorante → "Un Viaggio nei Sapori", "Cucina Autentica Italiana"
+- Tech/SaaS → "Automatizza il Tuo Business", "La Tecnologia che Semplifica"
 
-AFTER completing your design_thinking, output ONLY JSON: {"elements":[...]}
+COLORS must match topic:
+- Wine → #722F37 (burgundy), #C9A227 (gold), #F5F5DC (cream)
+- Fitness → #FF6B35 (orange), #2EC4B6 (teal), #011627 (dark)
+- Ristorante → #D4A574 (terracotta), #8B4513 (brown), #FFF8DC (cream)
+- Tech → #6366F1 (indigo), #0D0D0D (black), #FFFFFF (white)
 
-═══════════════════════════════════════════════════════════════
-STEP 2: CONTENT RULES (CRITICAL)
-═══════════════════════════════════════════════════════════════
-
-Based on your design_thinking, create UNIQUE content:
-
-HEADLINES must be topic-specific:
-- "tema vino" → "Scopri i Nostri Vini Pregiati" NOT "Build Something Beautiful"
-- "fitness" → "Trasforma il Tuo Corpo Oggi" NOT "Start Your Journey"
-- "ristorante" → "Un Viaggio nei Sapori" NOT "Welcome to Our Site"
-
-COLORS must match the topic:
-- Use the color palette from your design_thinking
-- Apply consistently across sections
-- Background, text, buttons, accents
-
-IMAGES must be relevant:
-- Use Unsplash URLs with topic-relevant keywords
-- Example for wine: "https://images.unsplash.com/photo-WINE-CELLAR?w=800"
-- Example for fitness: "https://images.unsplash.com/photo-GYM-WORKOUT?w=800"
+IMAGES must be topic-relevant Unsplash URLs:
+- Wine: https://images.unsplash.com/photo-1506377247377-2a5b3417ebb?w=1200 (wine cellar)
+- Fitness: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200 (gym)
+- Food: https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200 (restaurant)
 
 ═══════════════════════════════════════════════════════════════
-STEP 3: LAYOUT RULES (REQUIRED)
+LAYOUT RULES
 ═══════════════════════════════════════════════════════════════
 
 FORBIDDEN (will break the design):
@@ -1937,40 +1920,48 @@ export function getDesignPromptWithIntent(userMessage: string, options?: { style
     intent.suggestedColors = options.selectedPalette.colors;
   }
 
-  // Start with base design prompt
-  let prompt = DESIGN_MODE_PROMPT;
+  // BUILD PROMPT WITH TOPIC CONTEXT FIRST (most important)
+  let prompt = '';
 
-  // Add style preset if specified
-  if (options?.stylePresetId) {
-    prompt += '\n\n' + formatStylePresetForAI(options.stylePresetId);
-  }
+  // 1. TOPIC HEADER - This is the FIRST thing the AI sees
+  const topicName = intent.topic.charAt(0).toUpperCase() + intent.topic.slice(1);
+  const colors = intent.suggestedColors;
 
-  // Add design intent with palette info
-  prompt += '\n\n' + formatDesignIntentForPrompt(intent);
+  prompt += `════════════════════════════════════════════════════════════════════════════════
+🎯 QUESTO DESIGN È PER: ${topicName.toUpperCase()}
+════════════════════════════════════════════════════════════════════════════════
 
-  // If there's a selected palette, add explicit color instructions
+LINGUA: ${intent.language === 'it' ? 'ITALIANO (obbligatorio)' : 'English'}
+
+COLORI DA USARE (OBBLIGATORI):
+- Background: ${colors.background}
+- Primary: ${colors.primary}
+- Secondary: ${colors.secondary}
+- Accent: ${colors.accent}
+- Text: ${colors.text}
+
+CONTENUTI SPECIFICI PER ${topicName.toUpperCase()}:
+- NON usare testo generico come "Build Something Beautiful"
+- USA testo italiano specifico per ${intent.topic}
+- Mood: ${intent.mood.join(', ')}
+
+`;
+
+  // 2. If palette explicitly selected, reinforce it
   if (options?.selectedPalette) {
-    prompt += `\n\n═══════════════════════════════════════════════════════════════
-USER SELECTED PALETTE: ${options.selectedPalette.name}
-═══════════════════════════════════════════════════════════════
-
-THE USER HAS EXPLICITLY CHOSEN THIS COLOR PALETTE. YOU MUST USE THESE EXACT COLORS:
-
-Primary Color: ${options.selectedPalette.colors.primary}
-Secondary Color: ${options.selectedPalette.colors.secondary}
-Accent Color: ${options.selectedPalette.colors.accent}
-Background Color: ${options.selectedPalette.colors.background}
-Text Color: ${options.selectedPalette.colors.text}
-
+    prompt += `PALETTE SELEZIONATA: ${options.selectedPalette.name}
 Mood: ${options.selectedPalette.mood.join(', ')}
 
-DO NOT deviate from this palette. These are the user's explicit color choices.
 `;
   }
 
-  // Add structural examples (no content to copy)
-  const structuralExamples = formatFewShotExamplesForAI(intent.topic === 'portfolio' ? 'portfolio' : 'landing');
-  prompt += '\n\n' + structuralExamples;
+  // 3. Add base design rules
+  prompt += DESIGN_MODE_PROMPT;
+
+  // 4. Add style preset if specified
+  if (options?.stylePresetId) {
+    prompt += '\n\n' + formatStylePresetForAI(options.stylePresetId);
+  }
 
   return prompt;
 }
