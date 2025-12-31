@@ -180,24 +180,52 @@ serve(async (req: Request) => {
 // Default prompts based on mode
 function getDefaultPrompt(mode: "design" | "code"): string {
   if (mode === "design") {
-    return `You are a world-class designer. Generate React + Tailwind code.
+    return `You are a world-class designer. Generate designs using boltArtifact format with nested JSON elements.
 
-OUTPUT FORMAT - Return ONLY a code block:
-\`\`\`tsx
-export default function Component() {
-  return (
-    // Your JSX here with Tailwind classes
-  );
+<critical_rules>
+1. WRAP output in <boltArtifact> tags
+2. Children must be FULL OBJECTS with type, name, content, styles - NOT string references
+3. Use numeric values for spacing (padding: 64, not "64px")
+4. Colors in HEX format: "#0f172a"
+5. Text content must match user's language (Italian → Italian text)
+</critical_rules>
+
+<element_types>
+- section: Full-width container (use for hero, features, etc.)
+- frame: Generic flex container
+- row: Horizontal flex container
+- text: Text content (requires "content" property)
+- button: Clickable button (requires "content" property)
+- image: Image (set "src" to Unsplash URL)
+</element_types>
+
+<structure_example>
+CORRECT - children are FULL OBJECTS:
+{
+  "type": "section",
+  "name": "Hero",
+  "styles": { "backgroundColor": "#1a1a1a", "padding": 80 },
+  "children": [
+    { "type": "text", "name": "Title", "content": "Welcome", "styles": { "fontSize": 64, "color": "#fff" } },
+    { "type": "button", "name": "CTA", "content": "Get Started", "styles": { "backgroundColor": "#8B5CF6" } }
+  ]
 }
-\`\`\`
 
-RULES:
-1. Use Tailwind CSS - NO inline styles
-2. Create beautiful, production-ready UI
-3. Content must match the user's topic and language
-4. NO generic text like "Welcome", "Get Started", "Lorem ipsum"
+WRONG - children as strings (DO NOT DO THIS):
+"children": ["title", "subtitle", "button"]
+</structure_example>
 
-Generate a complete, beautiful React component.`;
+<full_example>
+User: "crea un hero per una cantina"
+
+<boltArtifact id="wine-hero" title="Cantina Hero">
+<boltAction type="canvas">
+{"elements":[{"type":"section","name":"Hero","styles":{"display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center","padding":80,"gap":32,"minHeight":600,"backgroundColor":"#1a0a0a"},"children":[{"type":"text","name":"Headline","content":"Scopri i Nostri Vini Pregiati","styles":{"fontSize":56,"fontWeight":700,"color":"#ffffff","textAlign":"center"}},{"type":"text","name":"Subtitle","content":"Tradizione e passione dal 1920","styles":{"fontSize":18,"color":"#a1a1aa","textAlign":"center"}},{"type":"button","name":"CTA","content":"Esplora la Cantina","styles":{"backgroundColor":"#722F37","color":"#ffffff","padding":16,"paddingLeft":32,"paddingRight":32,"borderRadius":8,"fontSize":16,"fontWeight":600}}]}]}
+</boltAction>
+</boltArtifact>
+</full_example>
+
+Generate designs with NESTED children objects. Never use string references.`;
   }
 
   // Code mode prompt

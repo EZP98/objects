@@ -920,18 +920,49 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
         }
       };
 
-      // Streaming loop with incremental parsing
-      let lastParseAttempt = 0;
-      const PARSE_INTERVAL = 500; // Try parsing every 500ms worth of content
+      // Streaming loop with buffer for partial lines
+      let buffer = '';
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
+          // Append new chunk to buffer
+          buffer += decoder.decode(value, { stream: true });
 
+          // Split by double newline (SSE event separator)
+          const events = buffer.split('\n\n');
+          // Keep the last partial event in buffer
+          buffer = events.pop() || '';
+
+          for (const event of events) {
+            const lines = event.split('\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  if (parsed.text) {
+                    fullContent += parsed.text;
+
+                    // Show content directly for all modes
+                    updateMessage(assistantMessage.id, fullContent);
+                  }
+                } catch (e) {
+                  console.log('[AIChatPanel] JSON parse error for:', data.substring(0, 50));
+                  // Skip invalid JSON
+                }
+              }
+            }
+          }
+        }
+
+        // Process any remaining buffer content
+        if (buffer.trim()) {
+          const lines = buffer.split('\n');
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
@@ -941,8 +972,6 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
                 const parsed = JSON.parse(data);
                 if (parsed.text) {
                   fullContent += parsed.text;
-
-                  // Show content directly for all modes
                   updateMessage(assistantMessage.id, fullContent);
                 }
               } catch (e) {
@@ -958,40 +987,58 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
 
       // Handle response based on output mode
       if (outputMode === 'design' || outputMode === 'smart') {
-        // DESIGN/SMART MODE: AI generates React/Tailwind → Canvas elements
-        console.log(`[AIChatPanel] ${outputMode} mode - parsing React code for canvas`);
+        // DESIGN/SMART MODE: Parse boltArtifact format with canvas elements
+        console.log(`[AIChatPanel] ${outputMode} mode - parsing boltArtifact for canvas`);
+        console.log('[AIChatPanel] fullContent length:', fullContent.length);
+        console.log('[AIChatPanel] fullContent preview:', fullContent.substring(0, 500));
+        console.log('[AIChatPanel] contains boltArtifact:', fullContent.includes('boltArtifact'));
+        console.log('[AIChatPanel] contains boltAction:', fullContent.includes('boltAction'));
 
         try {
-          // Extract JSX code blocks from response
-          const codeBlocks = extractJSXFromResponse(fullContent);
-          console.log('[AIChatPanel] Found', codeBlocks.length, 'JSX code blocks');
+          // Try boltArtifact format first (new approach)
+          const { artifacts, explanation } = parseArtifacts(fullContent);
+          const canvasArtifacts = artifacts.filter(a => a.type === 'canvas' && a.canvasElements);
 
-          if (codeBlocks.length === 0) {
-            // Fallback: try to find any code block
-            const codeMatch = fullContent.match(/```(?:tsx?|jsx?)\n([\s\S]*?)```/);
-            if (codeMatch) {
-              codeBlocks.push(codeMatch[1]);
-            }
-          }
-
-          if (codeBlocks.length === 0) {
-            // No code found - just show the response
-            console.log('[AIChatPanel] No code blocks found');
-            return;
-          }
+          console.log('[AIChatPanel] Found', artifacts.length, 'total artifacts,', canvasArtifacts.length, 'canvas artifacts');
 
           let allElements: any[] = [];
           const elementNames: string[] = [];
 
-          // Parse each code block to canvas elements
-          for (const codeBlock of codeBlocks) {
-            const elements = parseJSXToCanvas(codeBlock);
-            console.log('[AIChatPanel] Parsed', elements.length, 'elements from code block');
-            allElements = allElements.concat(elements);
+          if (canvasArtifacts.length > 0) {
+            // Use canvas elements from boltArtifact
+            for (const artifact of canvasArtifacts) {
+              if (artifact.canvasElements) {
+                allElements = allElements.concat(artifact.canvasElements);
+                console.log('[AIChatPanel] Added', artifact.canvasElements.length, 'elements from canvas artifact');
+              }
+            }
+          } else {
+            // Fallback: try legacy JSX parsing
+            console.log('[AIChatPanel] No canvas artifacts found, trying JSX fallback...');
+
+            const codeBlocks = extractJSXFromResponse(fullContent);
+            console.log('[AIChatPanel] Found', codeBlocks.length, 'JSX code blocks');
+
+            if (codeBlocks.length === 0) {
+              // Fallback: try to find any code block
+              const codeMatch = fullContent.match(/```(?:tsx?|jsx?)\n([\s\S]*?)```/);
+              if (codeMatch) {
+                codeBlocks.push(codeMatch[1]);
+              }
+            }
+
+            // Parse each code block to canvas elements
+            for (const codeBlock of codeBlocks) {
+              const elements = parseJSXToCanvas(codeBlock);
+              console.log('[AIChatPanel] Parsed', elements.length, 'elements from JSX block');
+              allElements = allElements.concat(elements);
+            }
           }
 
           if (allElements.length === 0) {
             console.log('[AIChatPanel] No canvas elements extracted');
+            // Show the response content instead
+            updateMessage(assistantMessage.id, fullContent);
             return;
           }
 
@@ -1019,11 +1066,12 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
           const pageInfo = pageId ? ' (nuova pagina)' : '';
           updateMessage(
             assistantMessage.id,
-            `✅ Creati ${ids.length} elementi sul canvas${pageInfo}\n\n${elementNames.slice(0, 8).join(', ')}${elementNames.length > 8 ? '...' : ''}`
+            `Creati ${ids.length} elementi sul canvas${pageInfo}\n\n${elementNames.slice(0, 8).join(', ')}${elementNames.length > 8 ? '...' : ''}`
           );
         } catch (err) {
-          console.error('[AIChatPanel] Error parsing React to canvas:', err);
-          // Content is already shown in chat, so no need to update
+          console.error('[AIChatPanel] Error parsing design response:', err);
+          // Show content as fallback
+          updateMessage(assistantMessage.id, fullContent);
         }
       } else if (false) {
         // Legacy smart mode block - keeping structure for now

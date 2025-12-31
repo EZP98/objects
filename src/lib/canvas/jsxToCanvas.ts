@@ -570,13 +570,50 @@ export function parseJSXToCanvas(code: string): CanvasElementData[] {
 export function extractJSXFromResponse(response: string): string[] {
   const codeBlocks: string[] = [];
 
-  // Match ```tsx or ```jsx code blocks
-  const matches = response.matchAll(/```(?:tsx?|jsx?)\n([\s\S]*?)```/g);
+  console.log('[extractJSX] Input length:', response.length);
+  console.log('[extractJSX] First 300 chars:', JSON.stringify(response.substring(0, 300)));
+  console.log('[extractJSX] Has backticks:', response.includes('```'));
+  console.log('[extractJSX] Has tsx:', response.includes('tsx'));
 
+  // Find backtick positions for debugging
+  const backtickPos = response.indexOf('```');
+  if (backtickPos >= 0) {
+    console.log('[extractJSX] First ``` at position:', backtickPos);
+    console.log('[extractJSX] Chars around first ```:', JSON.stringify(response.substring(Math.max(0, backtickPos - 5), backtickPos + 20)));
+  }
+
+  // Try multiple patterns to catch different code block formats
+  // Pattern 1: ```tsx or ```jsx with newline (standard)
+  let matches = response.matchAll(/```(?:tsx?|jsx?)\s*\n([\s\S]*?)```/gi);
   for (const match of matches) {
+    console.log('[extractJSX] Found pattern 1 match, length:', match[1].length);
     codeBlocks.push(match[1]);
   }
 
+  // Pattern 2: Just ``` with code that looks like React
+  if (codeBlocks.length === 0) {
+    matches = response.matchAll(/```\s*\n?([\s\S]*?)```/g);
+    for (const match of matches) {
+      const code = match[1];
+      // Check if it looks like React code
+      if (code.includes('export') || code.includes('function') || code.includes('return') || code.includes('<')) {
+        console.log('[extractJSX] Found pattern 2 match (generic), length:', code.length);
+        codeBlocks.push(code);
+      }
+    }
+  }
+
+  // Pattern 3: Try to find inline React component without code blocks
+  if (codeBlocks.length === 0) {
+    // Look for export default function or function Component patterns
+    const inlineMatch = response.match(/((?:export\s+default\s+)?function\s+\w+\s*\([^)]*\)\s*\{[\s\S]*?return\s*\([\s\S]*?\)[;\s]*\})/);
+    if (inlineMatch) {
+      console.log('[extractJSX] Found inline component, length:', inlineMatch[1].length);
+      codeBlocks.push(inlineMatch[1]);
+    }
+  }
+
+  console.log('[extractJSX] Total code blocks found:', codeBlocks.length);
   return codeBlocks;
 }
 
