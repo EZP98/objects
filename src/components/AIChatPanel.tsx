@@ -751,21 +751,14 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
     // Create placeholder for streaming response
     const assistantMessage = addMessage('assistant', '');
 
-    // Track streamed content outside try block so it's accessible in catch
+    // Track streamed content
     let fullContent = '';
 
-    // STREAMING UI: Track elements added incrementally (outside try for abort handling)
-    const addedElementHashes = new Set<string>();
-    let streamingPageId: string | undefined;
-    let streamingParentId: string | undefined;
-    let totalElementsAdded = 0;
-    const addedElementNames: string[] = [];
-
-    // Create abort controller and timeout outside try block
+    // Create abort controller and timeout
     abortControllerRef.current = new AbortController();
     const timeoutId = setTimeout(() => {
       abortControllerRef.current?.abort();
-    }, 180000); // 180 second timeout (3 minutes for complex designs)
+    }, 180000); // 3 minutes timeout
 
     try {
       // Build full project context for AI (only for code mode)
@@ -869,58 +862,6 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let chunkCount = 0;
-
-      // Helper to hash an element for deduplication
-      const hashElement = (el: Record<string, unknown>): string => {
-        return JSON.stringify({ name: el.name, type: el.type, content: el.content });
-      };
-
-      // Helper to add elements incrementally during streaming
-      const addElementsIncrementally = (elements: Record<string, unknown>[]) => {
-        if (elements.length === 0) return;
-
-        const store = useCanvasStore.getState();
-
-        // Create new page on first element if toggle is on
-        if (createAsNewPage && !streamingPageId) {
-          const pageName = (elements[0]?.name as string) || 'AI Generated';
-          streamingPageId = store.addPage();
-          if (streamingPageId) {
-            store.renamePage(streamingPageId, pageName);
-            const page = store.pages[streamingPageId];
-            if (page) {
-              store.renameElement(page.rootElementId, pageName);
-              streamingParentId = page.rootElementId;
-            }
-            store.setCurrentPage(streamingPageId);
-            console.log('[Streaming] Created new page:', pageName);
-          }
-        }
-
-        // Add only new elements (not already added)
-        for (const element of elements) {
-          const hash = hashElement(element);
-          if (!addedElementHashes.has(hash)) {
-            addedElementHashes.add(hash);
-            try {
-              const ids = addElementsFromAI([element] as any, streamingParentId);
-              if (ids.length > 0) {
-                totalElementsAdded += ids.length;
-                addedElementNames.push((element.name as string) || (element.type as string) || 'element');
-                console.log('[Streaming] Added element:', element.name || element.type, 'total:', totalElementsAdded);
-
-                // Update message to show progress
-                updateMessage(
-                  assistantMessage.id,
-                  `⏳ Generando design... ${totalElementsAdded} elementi aggiunti\n${addedElementNames.slice(-3).join(', ')}${addedElementNames.length > 3 ? '...' : ''}`
-                );
-              }
-            } catch (err) {
-              console.warn('[Streaming] Failed to add element:', err);
-            }
-          }
-        }
-      };
 
       // Streaming loop with buffer for partial lines
       let buffer = '';
@@ -1282,37 +1223,10 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
 
       // Don't show error if user aborted
       if (error instanceof Error && error.name === 'AbortError') {
-        // Check if we have partial work from streaming
-        if (totalElementsAdded > 0) {
-          // Success! We saved partial work
-          console.log('[AIChatPanel] Aborted but preserved', totalElementsAdded, 'elements');
-          if (createAsNewPage) setCreateAsNewPage(false);
-          const pageInfo = streamingPageId ? `\n📄 Nuova pagina creata` : '';
-          updateMessage(
-            assistantMessage.id,
-            `⚠️ Generazione interrotta - ${totalElementsAdded} elementi salvati${pageInfo}\n${addedElementNames.join(', ')}`
-          );
-        } else if (fullContent.length === 0) {
-          updateMessage(assistantMessage.id, '⏱️ Timeout - la richiesta ha impiegato troppo tempo. Riprova.');
+        if (fullContent.length === 0) {
+          updateMessage(assistantMessage.id, 'Timeout - la richiesta ha impiegato troppo tempo. Riprova.');
         } else {
-          // Try one last parse attempt to save any complete elements
-          if (outputMode === 'design') {
-            const extracted = extractSectionsFromBrokenJSON(fullContent);
-            if (extracted.length > 0) {
-              try {
-                const ids = addElementsFromAI(extracted as any);
-                if (ids.length > 0) {
-                  updateMessage(
-                    assistantMessage.id,
-                    `⚠️ Generazione interrotta - salvati ${ids.length} elementi\n${extracted.map((e: Record<string, unknown>) => e.name || e.type).join(', ')}`
-                  );
-                  return;
-                }
-              } catch (e) {
-                console.warn('[AIChatPanel] Last-ditch parse failed:', e);
-              }
-            }
-          }
+          // Show what we got so far
           updateMessage(assistantMessage.id, fullContent + '\n\n*[Generazione interrotta]*');
         }
       } else {
