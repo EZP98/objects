@@ -148,13 +148,22 @@ export default function BoltEditor() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [files, setFiles] = useState<Record<string, string>>(DEFAULT_FILES);
   const [currentFile, setCurrentFile] = useState('src/App.tsx');
-  const [leftPanelWidth, setLeftPanelWidth] = useState(320);
-  const [rightPanelWidth, setRightPanelWidth] = useState(500);
+  const [leftPanelWidth] = useState(320);
+  const [rightPanelWidth] = useState(500);
+  const [previewStatus, setPreviewStatus] = useState<string>('idle');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const previewRef = useRef<any>(null);
+
+  // Debug log on mount
+  useEffect(() => {
+    console.log('[BoltEditor] Mounted');
+    console.log('[BoltEditor] SUPABASE_URL:', SUPABASE_URL);
+    console.log('[BoltEditor] AI_ENDPOINT:', AI_ENDPOINT);
+  }, []);
 
   // Auto-scroll messages
   useEffect(() => {
@@ -451,14 +460,37 @@ export default function BoltEditor() {
         <div className="h-10 bg-zinc-900 border-b border-zinc-800 flex items-center px-4">
           <span className="text-sm font-medium text-zinc-400">Preview</span>
         </div>
-        <div className="flex-1 bg-white">
+        <div className="flex-1 bg-white relative">
           <Suspense fallback={<LoadingFallback />}>
             <WebContainerPreview
               ref={previewRef}
               files={files}
               height="100%"
+              onStatusChange={(status) => {
+                console.log('[BoltEditor] WebContainer status:', status);
+                setPreviewStatus(status);
+              }}
+              onUrlReady={(url) => {
+                console.log('[BoltEditor] Preview URL ready:', url);
+                setPreviewUrl(url);
+              }}
             />
           </Suspense>
+          {/* Status overlay */}
+          {previewStatus !== 'ready' && (
+            <div className="absolute inset-0 bg-zinc-900/80 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-zinc-400 text-sm mb-2">
+                  {previewStatus === 'booting' && 'Avvio WebContainer...'}
+                  {previewStatus === 'installing' && 'Installazione dipendenze...'}
+                  {previewStatus === 'starting' && 'Avvio server...'}
+                  {previewStatus === 'idle' && 'Inizializzazione...'}
+                  {previewStatus === 'error' && 'Errore WebContainer'}
+                </div>
+                <div className="text-zinc-500 text-xs">{previewStatus}</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
