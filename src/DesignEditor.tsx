@@ -1909,14 +1909,14 @@ export default defineConfig({ plugins: [react()] });`,
 
   // Discover pages/routes when files are loaded
   useEffect(() => {
-    // Use webcontainerFiles for new projects, fileContents for GitHub projects
-    const files = Object.keys(fileContents).length > 0 ? fileContents : webcontainerFiles;
+    // Use webContainerFiles for new projects, fileContents for GitHub projects
+    const files = Object.keys(fileContents).length > 0 ? fileContents : webContainerFiles;
     if (files && Object.keys(files).length > 0) {
       const pages = discoverPages(files);
       setDiscoveredPages(pages);
       console.log('Discovered pages:', pages);
     }
-  }, [fileContents, webcontainerFiles]);
+  }, [fileContents, webContainerFiles]);
 
   // Set iframe loading state when URL changes
   useEffect(() => {
@@ -3866,7 +3866,7 @@ export default defineConfig({ plugins: [react()] });`,
                     <Suspense fallback={<LazyLoadingFallback />}>
                       <WebContainerPreview
                         ref={webContainerPreviewRef}
-                        files={webcontainerFiles}
+                        files={webContainerFiles}
                         autoStart={true}
                         onStatusChange={(status) => {
                           setWebcontainerReady(status === 'ready');
