@@ -865,8 +865,10 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
 
       if (!response.ok) throw new Error('Stream request failed');
 
+      console.log('[AIChatPanel] Stream started, status:', response.status);
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
+      let chunkCount = 0;
 
       // Helper to hash an element for deduplication
       const hashElement = (el: Record<string, unknown>): string => {
@@ -926,10 +928,19 @@ const AIChatPanel = forwardRef<AIChatPanelRef, AIChatPanelProps>(function AIChat
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            console.log('[AIChatPanel] Stream done, total chunks:', chunkCount, 'fullContent length:', fullContent.length);
+            break;
+          }
 
+          chunkCount++;
           // Append new chunk to buffer
-          buffer += decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+
+          if (chunkCount <= 3) {
+            console.log(`[AIChatPanel] Chunk ${chunkCount}:`, chunk.substring(0, 100));
+          }
 
           // Split by double newline (SSE event separator)
           const events = buffer.split('\n\n');
