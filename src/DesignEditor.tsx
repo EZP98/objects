@@ -1150,7 +1150,7 @@ export default defineConfig({ plugins: [react()] });`,
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [webcontainerUrl, setWebcontainerUrl] = useState<string>('');
   const [useWebContainer, setUseWebContainer] = useState(false);
-  const [webcontainerFiles, setWebcontainerFiles] = useState<Record<string, string> | undefined>(undefined);
+  // webcontainerFiles was removed - now using webContainerFiles with default template
   const [viewMode, setViewMode] = useState<'design' | 'code' | 'pages'>('design');
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('desktop');
   const [selectedDevice, setSelectedDevice] = useState<DevicePreset>(DEVICE_PRESETS.find(d => d.id === 'desktop-lg')!);
@@ -1885,7 +1885,7 @@ export default defineConfig({ plugins: [react()] });`,
 
         setProjectFiles(fileTree);
         setFileContents(files);
-        setWebcontainerFiles(files);
+        setWebContainerFiles(files);
         setShowUrlInput(false);
 
       } catch (e) {
@@ -1902,7 +1902,7 @@ export default defineConfig({ plugins: [react()] });`,
   useEffect(() => {
     if (githubRepo && !useWebContainer && Object.keys(fileContents).length > 0) {
       setUseWebContainer(true);
-      setWebcontainerFiles(fileContents);
+      setWebContainerFiles(fileContents);
       setProjectStatus('installing');
     }
   }, [githubRepo, useWebContainer, fileContents]);
@@ -3048,13 +3048,13 @@ export default defineConfig({ plugins: [react()] });`,
                   // Apply file updates from AI artifacts
                   setFileContents(prev => ({ ...prev, ...updatedFiles }));
                   // Update WebContainer files for live preview (always, not just for GitHub projects)
-                  setWebcontainerFiles(prev => ({ ...prev, ...updatedFiles }));
+                  setWebContainerFiles(prev => ({ ...prev, ...updatedFiles }));
                   console.log('[DesignEditor] Files updated from AI:', Object.keys(updatedFiles));
                 }}
                 onRestoreSnapshot={(files) => {
                   setFileContents(files);
                   // Refresh the preview (always, not just for GitHub projects)
-                  setWebcontainerFiles(files);
+                  setWebContainerFiles(files);
                 }}
                 onApplyCode={(code, filePath) => {
                   if (filePath) {
@@ -3088,7 +3088,7 @@ export default defineConfig({ plugins: [react()] });`,
                       'src/index.css': `@tailwind base;\n@tailwind components;\n@tailwind utilities;`,
                       'src/App.jsx': code,
                     };
-                    setWebcontainerFiles(projectFiles);
+                    setWebContainerFiles(projectFiles);
                     setUseWebContainer(true);
                   }
                 }}
