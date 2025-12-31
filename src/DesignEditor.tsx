@@ -3374,13 +3374,31 @@ export default defineConfig({ plugins: [react()] });`,
 
                   {/* Render based on mode */}
                   {canvasViewMode === 'preview' ? (
-                    <div className="flex-1 w-full h-full bg-white rounded-lg overflow-hidden">
-                      <Suspense fallback={<LazyLoadingFallback />}>
-                        <WebContainerPreview
-                          files={webContainerFiles}
-                          height="100%"
-                        />
-                      </Suspense>
+                    <div style={{
+                      flex: 1,
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 40,
+                    }}>
+                      <div style={{
+                        width: '100%',
+                        maxWidth: 1200,
+                        height: '100%',
+                        background: '#fff',
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                      }}>
+                        <Suspense fallback={<LazyLoadingFallback />}>
+                          <WebContainerPreview
+                            files={webContainerFiles}
+                            height="100%"
+                          />
+                        </Suspense>
+                      </div>
                     </div>
                   ) : canvasViewMode === '2d' ? (
                     <Canvas
