@@ -726,6 +726,42 @@ function parseJSXString(jsx: string): ParsedJSXElement[] {
       return { element: text || null, endIndex: nextTagIndex };
     }
 
+    // Handle React Fragment shorthand <> ... </>
+    if (str.startsWith('<>')) {
+      // Find the closing </> and extract content
+      const closeIndex = str.lastIndexOf('</>');
+      if (closeIndex > 2) {
+        const fragmentContent = str.substring(2, closeIndex).trim();
+        // Parse content inside fragment and return as array wrapped in a virtual container
+        const fragmentElements: ParsedJSXElement[] = [];
+        let childIndex = 0;
+        while (childIndex < fragmentContent.length) {
+          const { element: child, endIndex } = parseElement(fragmentContent.substring(childIndex));
+          if (child && typeof child !== 'string') {
+            fragmentElements.push(child);
+          }
+          if (endIndex === 0) break;
+          childIndex += endIndex;
+        }
+        // Return first element or wrap multiple in a virtual frame
+        if (fragmentElements.length === 1) {
+          return { element: fragmentElements[0], endIndex: closeIndex + 3 };
+        } else if (fragmentElements.length > 1) {
+          // Create a virtual container for multiple fragment children
+          return {
+            element: {
+              tag: 'div',
+              className: 'flex flex-col w-full',
+              children: fragmentElements,
+              props: {},
+            },
+            endIndex: closeIndex + 3,
+          };
+        }
+      }
+      return { element: null, endIndex: str.length };
+    }
+
     // Parse opening tag
     const openTagMatch = str.match(/^<(\w+)([^>]*?)(\/?)>/);
     if (!openTagMatch) {
