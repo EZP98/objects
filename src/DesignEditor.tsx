@@ -3392,22 +3392,22 @@ export default defineConfig({ plugins: [react()] });`,
                       alignItems: 'center',
                       justifyContent: 'center',
                       padding: 40,
+                      background: '#1a1a1a',
                     }}>
                       <div style={{
                         width: '100%',
-                        maxWidth: 1200,
+                        maxWidth: 1440,
                         height: '100%',
                         background: '#fff',
                         borderRadius: 12,
-                        overflow: 'hidden',
+                        overflow: 'auto',
                         boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
                       }}>
-                        <Suspense fallback={<LazyLoadingFallback />}>
-                          <WebContainerPreview
-                            files={webContainerFiles}
-                            height="100%"
-                          />
-                        </Suspense>
+                        {/* Canvas Preview - renders canvas elements */}
+                        <CanvasPreview
+                          breakpointId={currentBreakpoint}
+                          width={1440}
+                        />
                       </div>
                     </div>
                   ) : canvasViewMode === '2d' ? (
